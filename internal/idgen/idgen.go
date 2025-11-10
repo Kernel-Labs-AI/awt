@@ -63,9 +63,9 @@ func SanitizeName(name string) string {
 
 // ValidateTaskID validates a task ID format
 func ValidateTaskID(id string) bool {
-	// Format: YYYYmmdd-HHMMSS-<6hex>
-	// Example: 20250110-120000-abc123
-	if len(id) != 21 {
+	// Format: YYYYMMDD-HHMMSS-<6hex>
+	// Example: 20251110-134500-abc123 (8+1+6+1+6 = 22 chars)
+	if len(id) != 22 {
 		return false
 	}
 

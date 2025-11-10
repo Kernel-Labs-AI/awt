@@ -83,7 +83,7 @@ changelog:
 
 release:
   github:
-    owner: decibelvc
+    owner: kernel-labs-ai
     name: awt
   draft: false
   prerelease: auto
@@ -97,13 +97,13 @@ release:
 
     #### macOS (Homebrew)
     ```bash
-    brew install decibelvc/tap/awt
+    brew install kernel-labs-ai/tap/awt
     ```
 
     #### Linux/macOS (Manual)
     ```bash
     # Download the appropriate binary for your platform
-    curl -LO https://github.com/decibelvc/awt/releases/download/{{.Tag}}/awt_{{.Version}}_<OS>_<ARCH>.tar.gz
+    curl -LO https://github.com/kernel-labs-ai/awt/releases/download/{{.Tag}}/awt_{{.Version}}_<OS>_<ARCH>.tar.gz
     tar xzf awt_{{.Version}}_<OS>_<ARCH>.tar.gz
     sudo mv awt /usr/local/bin/
     ```
@@ -112,16 +112,16 @@ release:
     Download the `.zip` file for your architecture and extract `awt.exe` to a directory in your PATH.
 
   footer: |
-    **Full Changelog**: https://github.com/decibelvc/awt/compare/{{.PreviousTag}}...{{.Tag}}
+    **Full Changelog**: https://github.com/kernel-labs-ai/awt/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Homebrew tap
 brews:
   - name: awt
     repository:
-      owner: decibelvc
+      owner: kernel-labs-ai
       name: homebrew-tap
     folder: Formula
-    homepage: https://github.com/decibelvc/awt
+    homepage: https://github.com/kernel-labs-ai/awt
     description: "Agent WorkTrees - Enable multiple AI agents to safely create, use, and hand off Git worktrees"
     license: MIT
     test: |

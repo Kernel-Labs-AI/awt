@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/decibelvc/awt/internal/commands"
+	"github.com/kernel-labs-ai/awt/internal/commands"
 	"github.com/spf13/cobra"
 )
 

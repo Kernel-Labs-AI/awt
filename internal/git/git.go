@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/decibelvc/awt/internal/logger"
+	"github.com/kernel-labs-ai/awt/internal/logger"
 )
 
 // Git represents a Git operations wrapper

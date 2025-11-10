@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/decibelvc/awt/internal/config"
-	"github.com/decibelvc/awt/internal/errors"
-	"github.com/decibelvc/awt/internal/repo"
+	"github.com/kernel-labs-ai/awt/internal/config"
+	"github.com/kernel-labs-ai/awt/internal/errors"
+	"github.com/kernel-labs-ai/awt/internal/repo"
 	"github.com/spf13/cobra"
 )
 

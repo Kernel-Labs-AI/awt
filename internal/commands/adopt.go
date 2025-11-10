@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/decibelvc/awt/internal/errors"
-	"github.com/decibelvc/awt/internal/git"
-	"github.com/decibelvc/awt/internal/idgen"
-	"github.com/decibelvc/awt/internal/repo"
-	"github.com/decibelvc/awt/internal/task"
+	"github.com/kernel-labs-ai/awt/internal/errors"
+	"github.com/kernel-labs-ai/awt/internal/git"
+	"github.com/kernel-labs-ai/awt/internal/idgen"
+	"github.com/kernel-labs-ai/awt/internal/repo"
+	"github.com/kernel-labs-ai/awt/internal/task"
 	"github.com/spf13/cobra"
 )
 

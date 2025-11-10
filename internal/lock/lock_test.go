@@ -58,7 +58,8 @@ func TestLockConcurrency(t *testing.T) {
 	lm := NewLockManager(tempDir)
 
 	const numGoroutines = 10
-	counter := 0
+	var counter int
+	var counterMu sync.Mutex
 	var wg sync.WaitGroup
 
 	// Launch multiple goroutines that try to increment a counter
@@ -76,17 +77,28 @@ func TestLockConcurrency(t *testing.T) {
 			}
 			defer lock.Release()
 
-			// Critical section
+			// Critical section - using mutex to protect counter access
+			// The file lock is what we're testing, the mutex is just for race detector
+			counterMu.Lock()
 			current := counter
+			counterMu.Unlock()
+
 			time.Sleep(10 * time.Millisecond) // Simulate work
+
+			counterMu.Lock()
 			counter = current + 1
+			counterMu.Unlock()
 		}()
 	}
 
 	wg.Wait()
 
-	if counter != numGoroutines {
-		t.Errorf("counter = %d, expected %d (lock serialization failed)", counter, numGoroutines)
+	counterMu.Lock()
+	finalCount := counter
+	counterMu.Unlock()
+
+	if finalCount != numGoroutines {
+		t.Errorf("counter = %d, expected %d (lock serialization failed)", finalCount, numGoroutines)
 	}
 }
 

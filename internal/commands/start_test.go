@@ -1,0 +1,187 @@
+package commands
+
+import (
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+)
+
+// setupTestRepo creates a temporary git repository for testing
+func setupTestRepo(t *testing.T) (string, func()) {
+	tempDir, err := os.MkdirTemp("", "awt-cmd-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatalf("failed to init git repo: %v", err)
+	}
+
+	// Configure git
+	exec.Command("git", "-C", tempDir, "config", "user.name", "Test User").Run()
+	exec.Command("git", "-C", tempDir, "config", "user.email", "test@example.com").Run()
+
+	// Create initial commit
+	readmePath := filepath.Join(tempDir, "README.md")
+	os.WriteFile(readmePath, []byte("# Test Repo\n"), 0644)
+	exec.Command("git", "-C", tempDir, "add", "README.md").Run()
+	exec.Command("git", "-C", tempDir, "commit", "-m", "Initial commit").Run()
+
+	cleanup := func() {
+		os.RemoveAll(tempDir)
+	}
+
+	return tempDir, cleanup
+}
+
+func TestRunTaskStart(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	tests := []struct {
+		name    string
+		opts    *StartOptions
+		wantErr bool
+	}{
+		{
+			name: "valid task",
+			opts: &StartOptions{
+				RepoPath:     repoPath,
+				Agent:        "test-agent",
+				Title:        "Test task",
+				Base:         "HEAD",
+				NoFetch:      true,
+				BranchPrefix: "awt",
+				WorktreeDir:  ".awt/wt",
+				OutputJSON:   true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid agent name",
+			opts: &StartOptions{
+				RepoPath:     repoPath,
+				Agent:        "invalid agent!",
+				Title:        "Test task",
+				Base:         "HEAD",
+				NoFetch:      true,
+				BranchPrefix: "awt",
+				WorktreeDir:  ".awt/wt",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty title",
+			opts: &StartOptions{
+				RepoPath:     repoPath,
+				Agent:        "test-agent",
+				Title:        "",
+				Base:         "HEAD",
+				NoFetch:      true,
+				BranchPrefix: "awt",
+				WorktreeDir:  ".awt/wt",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runTaskStart(tt.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("runTaskStart() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// If successful, verify the worktree was created
+			if err == nil {
+				worktreePath := filepath.Join(repoPath, tt.opts.WorktreeDir)
+				if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+					t.Error("worktree directory was not created")
+				}
+			}
+		})
+	}
+}
+
+func TestRunTaskStartWithCustomID(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	opts := &StartOptions{
+		RepoPath:     repoPath,
+		Agent:        "test-agent",
+		Title:        "Test task with custom ID",
+		Base:         "HEAD",
+		ID:           "20251110-120000-abc123",
+		NoFetch:      true,
+		BranchPrefix: "awt",
+		WorktreeDir:  ".awt/wt",
+		OutputJSON:   true,
+	}
+
+	err := runTaskStart(opts)
+	if err != nil {
+		t.Fatalf("runTaskStart() failed: %v", err)
+	}
+
+	// Verify worktree exists at expected path
+	worktreePath := filepath.Join(repoPath, opts.WorktreeDir, opts.ID)
+	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		t.Error("worktree was not created at expected path")
+	}
+}
+
+func TestRunTaskStartInvalidTaskID(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	opts := &StartOptions{
+		RepoPath:     repoPath,
+		Agent:        "test-agent",
+		Title:        "Test task",
+		Base:         "HEAD",
+		ID:           "invalid-id",
+		NoFetch:      true,
+		BranchPrefix: "awt",
+		WorktreeDir:  ".awt/wt",
+	}
+
+	err := runTaskStart(opts)
+	if err == nil {
+		t.Error("expected error for invalid task ID, got nil")
+	}
+}
+
+func TestStartResultJSON(t *testing.T) {
+	result := StartResult{
+		ID:           "20251110-120000-abc123",
+		Branch:       "awt/test-agent/20251110-120000-abc123",
+		WorktreePath: "/path/to/worktree",
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("failed to marshal StartResult: %v", err)
+	}
+
+	var decoded StartResult
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("failed to unmarshal StartResult: %v", err)
+	}
+
+	if decoded.ID != result.ID {
+		t.Errorf("ID mismatch: got %q, want %q", decoded.ID, result.ID)
+	}
+	if decoded.Branch != result.Branch {
+		t.Errorf("Branch mismatch: got %q, want %q", decoded.Branch, result.Branch)
+	}
+	if decoded.WorktreePath != result.WorktreePath {
+		t.Errorf("WorktreePath mismatch: got %q, want %q", decoded.WorktreePath, result.WorktreePath)
+	}
+}

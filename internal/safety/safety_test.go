@@ -1,6 +1,8 @@
 package safety
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -166,6 +168,205 @@ func TestSanitizeTaskTitle(t *testing.T) {
 			got := SanitizeTaskTitle(tt.input)
 			if got != tt.expected {
 				t.Errorf("SanitizeTaskTitle(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateWorktreePath(t *testing.T) {
+	v := NewValidator()
+
+	// Create temp directory for testing
+	tempDir, err := os.MkdirTemp("", "awt-safety-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a test file (not a directory)
+	testFile := filepath.Join(tempDir, "testfile.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Create a non-empty directory
+	nonEmptyDir := filepath.Join(tempDir, "nonempty")
+	if err := os.MkdirAll(nonEmptyDir, 0755); err != nil {
+		t.Fatalf("failed to create non-empty dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nonEmptyDir, "file.txt"), []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to create file in non-empty dir: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		repoRoot string
+		wantErr  bool
+	}{
+		{
+			name:     "valid new path",
+			path:     filepath.Join(tempDir, "valid-worktree"),
+			repoRoot: tempDir,
+			wantErr:  false,
+		},
+		{
+			name:     "empty path",
+			path:     "",
+			repoRoot: tempDir,
+			wantErr:  true,
+		},
+		{
+			name:     "path is file not directory",
+			path:     testFile,
+			repoRoot: tempDir,
+			wantErr:  true,
+		},
+		{
+			name:     "non-empty directory",
+			path:     nonEmptyDir,
+			repoRoot: tempDir,
+			wantErr:  true,
+		},
+		{
+			name:     "inside .git directory",
+			path:     filepath.Join(tempDir, ".git", "worktrees", "test"),
+			repoRoot: tempDir,
+			wantErr:  true,
+		},
+		{
+			name:     "same as repo root",
+			path:     tempDir,
+			repoRoot: tempDir,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateWorktreePath(tt.path, tt.repoRoot)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateWorktreePath(%q, %q) error = %v, wantErr %v", tt.path, tt.repoRoot, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestIsSafeToRemoveWorktree(t *testing.T) {
+	v := NewValidator()
+
+	// Create temp directory for testing
+	tempDir, err := os.MkdirTemp("", "awt-safety-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a test worktree
+	worktree := filepath.Join(tempDir, "test-worktree")
+	if err := os.MkdirAll(worktree, 0755); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	// Create a file (not a directory)
+	testFile := filepath.Join(tempDir, "testfile.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		force   bool
+		wantErr bool
+	}{
+		{
+			name:    "non-existent path",
+			path:    filepath.Join(tempDir, "does-not-exist"),
+			force:   false,
+			wantErr: false, // Already removed, safe
+		},
+		{
+			name:    "valid worktree",
+			path:    worktree,
+			force:   false,
+			wantErr: false,
+		},
+		{
+			name:    "path is file not directory",
+			path:    testFile,
+			force:   false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.IsSafeToRemoveWorktree(tt.path, tt.force)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("IsSafeToRemoveWorktree(%q, %v) error = %v, wantErr %v", tt.path, tt.force, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRemoteName(t *testing.T) {
+	v := NewValidator()
+
+	tests := []struct {
+		name    string
+		remote  string
+		wantErr bool
+	}{
+		{"valid simple", "origin", false},
+		{"valid with dash", "my-remote", false},
+		{"valid with slash", "upstream/main", false},
+		{"empty", "", true},
+		{"starts with dash", "-invalid", true},
+		{"contains ..", "remote..invalid", true},
+		{"contains space", "remote invalid", true},
+		{"contains tab", "remote\tinvalid", true},
+		{"contains tilde", "remote~invalid", true},
+		{"contains caret", "remote^invalid", true},
+		{"contains colon", "remote:invalid", true},
+		{"contains question", "remote?invalid", true},
+		{"contains asterisk", "remote*invalid", true},
+		{"contains bracket", "remote[invalid", true},
+		{"contains backslash", "remote\\invalid", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateRemoteName(tt.remote)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRemoteName(%q) error = %v, wantErr %v", tt.remote, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRefspec(t *testing.T) {
+	v := NewValidator()
+
+	tests := []struct {
+		name    string
+		refspec string
+		wantErr bool
+	}{
+		{"valid simple", "refs/heads/main:refs/remotes/origin/main", false},
+		{"valid with plus", "+refs/heads/*:refs/remotes/origin/*", false},
+		{"valid force fetch", "refs/heads/feature", false},
+		{"empty", "", true},
+		{"starts with dash", "-invalid", true},
+		{"contains control char", "refs/heads/\x00invalid", true},
+		{"contains delete char", "refs/heads/\x7finvalid", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateRefspec(tt.refspec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRefspec(%q) error = %v, wantErr %v", tt.refspec, err, tt.wantErr)
 			}
 		})
 	}

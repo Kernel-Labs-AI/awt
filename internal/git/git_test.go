@@ -232,3 +232,113 @@ detached
 		t.Errorf("worktree 2 branch = %s, expected empty (detached)", worktrees[2].Branch)
 	}
 }
+
+func TestGitFetch(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Test fetch (will fail but tests the method)
+	result, err := g.Fetch("", "")
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	// Exit code doesn't matter for this test, we just want to cover the code path
+	_ = result.ExitCode
+}
+
+func TestGitAdd(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Create a new file
+	testFile := filepath.Join(repoPath, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Test add
+	result, err := g.Add(testFile)
+	if err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("Add returned non-zero exit code: %d", result.ExitCode)
+	}
+}
+
+func TestGitCommit(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Create and add a file
+	testFile := filepath.Join(repoPath, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Add the file
+	g.Add(testFile)
+
+	// Test commit
+	result, err := g.Commit("Test commit message", false, false, false)
+	if err != nil {
+		t.Fatalf("Commit failed: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("Commit returned non-zero exit code: %d, stderr: %s", result.ExitCode, result.Stderr)
+	}
+}
+
+func TestGitStatus(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Test status
+	result, err := g.Status()
+	if err != nil {
+		t.Fatalf("Status failed: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("Status returned non-zero exit code: %d", result.ExitCode)
+	}
+}
+
+func TestGitRevParse(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Test RevParse with HEAD
+	sha, err := g.RevParse("HEAD")
+	if err != nil {
+		t.Fatalf("RevParse failed: %v", err)
+	}
+	if sha == "" {
+		t.Error("RevParse returned empty SHA")
+	}
+}
+
+func TestGitWorktreePrune(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	g := New(repoPath, false)
+
+	// Test worktree prune (won't do much but covers the code)
+	result, err := g.WorktreePrune()
+	if err != nil {
+		t.Fatalf("WorktreePrune failed: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("WorktreePrune returned non-zero exit code: %d", result.ExitCode)
+	}
+}
