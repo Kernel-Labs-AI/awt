@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -92,53 +90,7 @@ func (lm *LockManager) AcquireLock(ctx context.Context, name string) (*Lock, err
 	}
 }
 
-// tryAcquireLock attempts to acquire a lock using flock with fallback
-func tryAcquireLock(lockPath string) (*Lock, error) {
-	// Open or create the lock file
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open lock file: %w", err)
-	}
-
-	// Try flock first (POSIX systems)
-	err = unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
-	if err == nil {
-		// Successfully acquired flock
-		return &Lock{
-			path: lockPath,
-			file: file,
-		}, nil
-	}
-
-	// Check if flock failed because lock is held
-	if err == unix.EWOULDBLOCK || err == unix.EAGAIN {
-		_ = file.Close()
-		return nil, fmt.Errorf("lock is held")
-	}
-
-	// flock not supported, try O_EXCL fallback for network filesystems
-	_ = file.Close()
-
-	// Try atomic create with O_EXCL
-	exclusivePath := lockPath + ".exclusive"
-	exclusiveFile, err := os.OpenFile(exclusivePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0644)
-	if err != nil {
-		if os.IsExist(err) {
-			// Lock is held by another process
-			return nil, fmt.Errorf("lock is held")
-		}
-		return nil, fmt.Errorf("failed to create exclusive lock: %w", err)
-	}
-
-	// Write PID to lock file for debugging
-	pid := os.Getpid()
-	_, _ = fmt.Fprintf(exclusiveFile, "%d\n", pid)
-
-	return &Lock{
-		path: exclusivePath,
-		file: exclusiveFile,
-	}, nil
-}
+// tryAcquireLock is implemented in platform-specific files (lock_unix.go, lock_windows.go)
 
 // Release releases the lock
 func (l *Lock) Release() error {
@@ -146,8 +98,10 @@ func (l *Lock) Release() error {
 		return nil
 	}
 
-	// Try to unlock with flock first
-	_ = unix.Flock(int(l.file.Fd()), unix.LOCK_UN)
+	// Platform-specific unlock
+	if err := releaseLock(l); err != nil {
+		return err
+	}
 
 	// Close the file
 	if err := l.file.Close(); err != nil {
@@ -164,6 +118,8 @@ func (l *Lock) Release() error {
 	l.file = nil
 	return nil
 }
+
+// releaseLock is implemented in platform-specific files (lock_unix.go, lock_windows.go)
 
 // Cleanup removes stale lock files
 // This should be called during prune operations
