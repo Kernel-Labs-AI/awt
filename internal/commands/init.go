@@ -76,6 +76,8 @@ func runInit(repoPath string) error {
 	fmt.Printf("  Repository: %s\n", r.WorkTreeRoot)
 	fmt.Printf("  AWT directory: %s\n", awtDir)
 	fmt.Printf("  Version: %s\n", AWTVersion)
+	fmt.Println()
+	fmt.Println("Tip: Run 'awt add-docs' to copy usage instructions to your project directory.")
 
 	return nil
 }
