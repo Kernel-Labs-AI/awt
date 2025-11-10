@@ -19,6 +19,9 @@ go.work.sum
 /awt
 /dist/
 
+# AWT runtime directory
+.awt/
+
 # IDE files
 .vscode/
 .idea/
