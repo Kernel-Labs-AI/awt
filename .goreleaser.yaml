@@ -18,14 +18,9 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
-    # Ignore combinations that don't make sense
-    ignore:
-      - goos: windows
-        goarch: arm64
     ldflags:
       - -s -w
       - -X main.Version={{.Version}}
@@ -44,9 +39,8 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
+    formats:
+      - tar.gz
     files:
       - README.md
       - LICENSE
@@ -57,7 +51,7 @@ checksum:
   algorithm: sha256
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -93,6 +87,8 @@ release:
 
     Agent WorkTrees (AWT) - A CLI tool that enables multiple AI agents to safely create, use, and hand off Git worktrees.
 
+    **Note:** AWT only supports macOS and Linux (POSIX systems).
+
     ### Installation
 
     #### macOS (Homebrew)
@@ -108,26 +104,18 @@ release:
     sudo mv awt /usr/local/bin/
     ```
 
-    #### Windows
-    Download the `.zip` file for your architecture and extract `awt.exe` to a directory in your PATH.
-
   footer: |
     **Full Changelog**: https://github.com/kernel-labs-ai/awt/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Homebrew tap
-brews:
+homebrew_casks:
   - name: awt
     repository:
       owner: kernel-labs-ai
       name: homebrew-tap
-    folder: Formula
     homepage: https://github.com/kernel-labs-ai/awt
     description: "Agent WorkTrees - Enable multiple AI agents to safely create, use, and hand off Git worktrees"
     license: MIT
-    test: |
-      system "#{bin}/awt", "version"
-    install: |
-      bin.install "awt"
 
 # Docker images (optional, for future)
 # dockers:
