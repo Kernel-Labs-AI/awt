@@ -108,7 +108,7 @@ release:
     **Full Changelog**: https://github.com/kernel-labs-ai/awt/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Homebrew tap
-homebrew_casks:
+brews:
   - name: awt
     repository:
       owner: kernel-labs-ai
@@ -116,6 +116,8 @@ homebrew_casks:
     homepage: https://github.com/kernel-labs-ai/awt
     description: "Agent WorkTrees - Enable multiple AI agents to safely create, use, and hand off Git worktrees"
     license: MIT
+    install: |
+      bin.install "awt"
 
 # Docker images (optional, for future)
 # dockers:
