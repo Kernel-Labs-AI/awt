@@ -2,8 +2,8 @@
 
 **AWT** (Agent WorkTrees) is a CLI tool that enables multiple AI agents to safely create, use, and hand off Git worktrees for concurrent development workflows.
 
-[![CI](https://github.com/kernel-labs-ai/awt/workflows/CI/badge.svg)](https://github.com/decibelvc/awt/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/decibelvc/awt)](https://goreportcard.com/report/github.com/decibelvc/awt)
+[![CI](https://github.com/kernel-labs-ai/awt/workflows/CI/badge.svg)](https://github.com/kernel-labs-ai/awt/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kernel-labs-ai/awt)](https://goreportcard.com/report/github.com/kernel-labs-ai/awt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
@@ -32,14 +32,14 @@ AWT solves the problem of multiple AI agents (like Claude, GPT, etc.) working on
 ### macOS (Homebrew)
 
 ```bash
-brew install decibelvc/tap/awt
+brew install kernel-labs-ai/tap/awt
 ```
 
 ### Linux/macOS (Manual)
 
 ```bash
 # Download the latest release
-curl -LO https://github.com/decibelvc/awt/releases/latest/download/awt_<VERSION>_<OS>_<ARCH>.tar.gz
+curl -LO https://github.com/kernel-labs-ai/awt/releases/latest/download/awt_<VERSION>_<OS>_<ARCH>.tar.gz
 
 # Extract and install
 tar xzf awt_*.tar.gz
@@ -52,7 +52,7 @@ awt version
 ### From Source
 
 ```bash
-git clone https://github.com/decibelvc/awt.git
+git clone https://github.com/kernel-labs-ai/awt.git
 cd awt
 go build -o awt ./cmd/awt
 sudo mv awt /usr/local/bin/
@@ -489,10 +489,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-Developed by [Decibel](https://decibelvc.com) for enabling AI agent collaboration.
+Developed by [Kernel Labs](https://kernellabs.ai) for enabling AI agent collaboration.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/decibelvc/awt/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/decibelvc/awt/discussions)
-- **Documentation**: [Wiki](https://github.com/decibelvc/awt/wiki)
+- **Issues**: [GitHub Issues](https://github.com/kernel-labs-ai/awt/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/kernel-labs-ai/awt/discussions)
+- **Documentation**: [Wiki](https://github.com/kernel-labs-ai/awt/wiki)
