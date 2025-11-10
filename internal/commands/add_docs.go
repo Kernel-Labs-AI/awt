@@ -75,7 +75,11 @@ func runAddDocs(outputPath string, force bool) error {
 		// File exists and force flag is not set - prompt for confirmation
 		fmt.Printf("File %s already exists. Overwrite? [y/N]: ", targetPath)
 		var response string
-		fmt.Scanln(&response)
+		if _, err := fmt.Scanln(&response); err != nil {
+			// If there's an error reading input (e.g., EOF), treat it as "no"
+			fmt.Println("\nOperation cancelled.")
+			return nil
+		}
 		response = strings.ToLower(strings.TrimSpace(response))
 		if response != "y" && response != "yes" {
 			fmt.Println("Operation cancelled.")
