@@ -1,0 +1,152 @@
+# GoReleaser configuration for AWT
+# Documentation: https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Run tests before building
+    - go test ./...
+    - go mod tidy
+
+builds:
+  - id: awt
+    binary: awt
+    main: ./cmd/awt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore combinations that don't make sense
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.Commit}}
+      - -X main.BuildDate={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: awt
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: decibelvc
+    name: awt
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## AWT {{.Tag}} Release
+
+    Agent WorkTrees (AWT) - A CLI tool that enables multiple AI agents to safely create, use, and hand off Git worktrees.
+
+    ### Installation
+
+    #### macOS (Homebrew)
+    ```bash
+    brew install decibelvc/tap/awt
+    ```
+
+    #### Linux/macOS (Manual)
+    ```bash
+    # Download the appropriate binary for your platform
+    curl -LO https://github.com/decibelvc/awt/releases/download/{{.Tag}}/awt_{{.Version}}_<OS>_<ARCH>.tar.gz
+    tar xzf awt_{{.Version}}_<OS>_<ARCH>.tar.gz
+    sudo mv awt /usr/local/bin/
+    ```
+
+    #### Windows
+    Download the `.zip` file for your architecture and extract `awt.exe` to a directory in your PATH.
+
+  footer: |
+    **Full Changelog**: https://github.com/decibelvc/awt/compare/{{.PreviousTag}}...{{.Tag}}
+
+# Homebrew tap
+brews:
+  - name: awt
+    repository:
+      owner: decibelvc
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://github.com/decibelvc/awt
+    description: "Agent WorkTrees - Enable multiple AI agents to safely create, use, and hand off Git worktrees"
+    license: MIT
+    test: |
+      system "#{bin}/awt", "version"
+    install: |
+      bin.install "awt"
+
+# Docker images (optional, for future)
+# dockers:
+#   - image_templates:
+#       - "decibelvc/awt:{{ .Tag }}"
+#       - "decibelvc/awt:latest"
+#     dockerfile: Dockerfile
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+
+# Announce releases (optional)
+# announce:
+#   twitter:
+#     enabled: false
+#   mastodon:
+#     enabled: false
+#   slack:
+#     enabled: false
