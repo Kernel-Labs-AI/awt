@@ -2,7 +2,7 @@
 
 **AWT** (Agent WorkTrees) is a CLI tool that enables multiple AI agents to safely create, use, and hand off Git worktrees for concurrent development workflows.
 
-[![CI](https://github.com/decibelvc/awt/workflows/CI/badge.svg)](https://github.com/decibelvc/awt/actions)
+[![CI](https://github.com/kernel-labs-ai/awt/workflows/CI/badge.svg)](https://github.com/decibelvc/awt/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/decibelvc/awt)](https://goreportcard.com/report/github.com/decibelvc/awt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
