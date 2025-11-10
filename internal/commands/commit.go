@@ -8,6 +8,7 @@ import (
 	"github.com/decibelvc/awt/internal/errors"
 	"github.com/decibelvc/awt/internal/git"
 	"github.com/decibelvc/awt/internal/repo"
+	"github.com/decibelvc/awt/internal/safety"
 	"github.com/decibelvc/awt/internal/task"
 	"github.com/spf13/cobra"
 )
@@ -124,6 +125,12 @@ func runTaskCommit(opts *CommitOptions) error {
 	message := opts.Message
 	if message == "" {
 		message = generateDefaultCommitMessage(t)
+	}
+
+	// Validate commit message
+	validator := safety.NewValidator()
+	if err := validator.ValidateCommitMessage(message); err != nil {
+		return fmt.Errorf("invalid commit message: %w", err)
 	}
 
 	// Determine GPG signing

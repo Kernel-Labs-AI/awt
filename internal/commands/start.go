@@ -11,7 +11,9 @@ import (
 	"github.com/decibelvc/awt/internal/git"
 	"github.com/decibelvc/awt/internal/idgen"
 	"github.com/decibelvc/awt/internal/lock"
+	"github.com/decibelvc/awt/internal/logger"
 	"github.com/decibelvc/awt/internal/repo"
+	"github.com/decibelvc/awt/internal/safety"
 	"github.com/decibelvc/awt/internal/task"
 	"github.com/spf13/cobra"
 )
@@ -100,11 +102,29 @@ Example:
 }
 
 func runTaskStart(opts *StartOptions) error {
+	log := logger.WithFields(map[string]string{
+		"command": "task start",
+		"agent":   opts.Agent,
+	})
+	log.Info("Starting new task")
+
+	// Validate inputs
+	validator := safety.NewValidator()
+
+	if err := validator.ValidateAgentName(opts.Agent); err != nil {
+		return fmt.Errorf("invalid agent name: %w", err)
+	}
+
+	if err := validator.ValidateTaskTitle(opts.Title); err != nil {
+		return fmt.Errorf("invalid task title: %w", err)
+	}
+
 	// Discover repository
 	r, err := repo.DiscoverRepo(opts.RepoPath)
 	if err != nil {
 		return errors.RepoNotFound(opts.RepoPath)
 	}
+	log.Debug("Repository discovered at %s", r.WorkTreeRoot)
 
 	// Create Git wrapper
 	g := git.New(r.WorkTreeRoot, false)
@@ -132,8 +152,18 @@ func runTaskStart(opts *StartOptions) error {
 	// Generate branch name
 	branchName := idgen.GenerateBranchName(opts.BranchPrefix, opts.Agent, taskID)
 
+	// Validate branch name
+	if err := validator.ValidateBranchName(branchName); err != nil {
+		return fmt.Errorf("invalid branch name: %w", err)
+	}
+
 	// Generate worktree path
 	worktreePath := filepath.Join(r.WorkTreeRoot, opts.WorktreeDir, taskID)
+
+	// Validate worktree path
+	if err := validator.ValidateWorktreePath(worktreePath, r.WorkTreeRoot); err != nil {
+		return fmt.Errorf("invalid worktree path: %w", err)
+	}
 
 	// Fetch unless --no-fetch
 	if !opts.NoFetch {
@@ -163,6 +193,7 @@ func runTaskStart(opts *StartOptions) error {
 	}
 
 	// Create worktree
+	log.Info("Creating worktree at %s", worktreePath)
 	result, err := g.WorktreeAdd(worktreePath, branchName, opts.Base)
 	if err != nil || result.ExitCode != 0 {
 		return fmt.Errorf("failed to create worktree: %s", result.Stderr)
@@ -182,11 +213,14 @@ func runTaskStart(opts *StartOptions) error {
 
 	// Save task
 	store := task.NewTaskStore(r.GitCommonDir)
+	log.Debug("Saving task metadata for %s", taskID)
 	if err := store.Save(t); err != nil {
 		// Try to clean up worktree
+		log.Error("Failed to save task, cleaning up worktree")
 		g.WorktreeRemove(worktreePath, true)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
+	log.Info("Task %s created successfully", taskID)
 
 	// Output result
 	if opts.OutputJSON {

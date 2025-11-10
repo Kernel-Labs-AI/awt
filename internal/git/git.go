@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/decibelvc/awt/internal/logger"
 )
 
 // Git represents a Git operations wrapper
@@ -36,7 +38,7 @@ func (g *Git) run(args ...string) (*Result, error) {
 	fullArgs := append([]string{"-C", g.workTreeRoot}, args...)
 
 	if g.verbose {
-		fmt.Printf("git %s\n", strings.Join(fullArgs, " "))
+		logger.Debug("git %s", strings.Join(fullArgs, " "))
 	}
 
 	cmd := exec.Command("git", fullArgs...)
