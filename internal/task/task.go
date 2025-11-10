@@ -95,7 +95,7 @@ func (ts *TaskStore) Save(task *Task) error {
 	// Rename to final location (atomic on POSIX systems)
 	if err := os.Rename(tempPath, taskPath); err != nil {
 		// Clean up temp file on error
-		os.Remove(tempPath)
+		_ = os.Remove(tempPath)
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

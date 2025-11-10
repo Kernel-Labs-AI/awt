@@ -62,8 +62,8 @@ Example:
 	cmd.Flags().StringVar(&opts.Title, "title", "", "task title (uses branch name if not provided)")
 	cmd.Flags().BoolVar(&opts.OutputJSON, "json", false, "output result as JSON")
 
-	cmd.MarkFlagRequired("branch")
-	cmd.MarkFlagRequired("agent")
+	_ = cmd.MarkFlagRequired("branch")
+	_ = cmd.MarkFlagRequired("agent")
 
 	return cmd
 }

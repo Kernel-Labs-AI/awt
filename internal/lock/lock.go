@@ -112,12 +112,12 @@ func tryAcquireLock(lockPath string) (*Lock, error) {
 
 	// Check if flock failed because lock is held
 	if err == unix.EWOULDBLOCK || err == unix.EAGAIN {
-		file.Close()
+		_ = file.Close()
 		return nil, fmt.Errorf("lock is held")
 	}
 
 	// flock not supported, try O_EXCL fallback for network filesystems
-	file.Close()
+	_ = file.Close()
 
 	// Try atomic create with O_EXCL
 	exclusivePath := lockPath + ".exclusive"
@@ -132,7 +132,7 @@ func tryAcquireLock(lockPath string) (*Lock, error) {
 
 	// Write PID to lock file for debugging
 	pid := os.Getpid()
-	fmt.Fprintf(exclusiveFile, "%d\n", pid)
+	_, _ = fmt.Fprintf(exclusiveFile, "%d\n", pid)
 
 	return &Lock{
 		path: exclusivePath,
@@ -187,10 +187,10 @@ func (lm *LockManager) Cleanup() error {
 		lock, err := tryAcquireLock(lockPath)
 		if err == nil {
 			// Lock was available, so it was stale - release it
-			lock.Release()
+			_ = lock.Release()
 			// Remove the lock file if it's not in use
 			if filepath.Ext(lockPath) == ".lock" {
-				os.Remove(lockPath)
+				_ = os.Remove(lockPath)
 			}
 		}
 		// If we can't acquire it, it's in use - leave it alone

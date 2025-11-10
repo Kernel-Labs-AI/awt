@@ -79,7 +79,7 @@ Example:
 					repoPath = args[i+1]
 					i += 2
 				} else if arg == "-h" || arg == "--help" {
-					cmd.Help()
+					_ = cmd.Help()
 					return nil
 				} else {
 					// Assume it's the task ID
@@ -194,7 +194,7 @@ func executeCommand(workDir string, cmdArgs []string) (int, error) {
 		case sig := <-sigChan:
 			// Propagate signal to child process
 			if cmd.Process != nil {
-				cmd.Process.Signal(sig)
+				_ = cmd.Process.Signal(sig)
 			}
 		case <-ctx.Done():
 			return

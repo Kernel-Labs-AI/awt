@@ -134,7 +134,9 @@ func runTaskUnlock(opts *UnlockOptions) error {
 	if err != nil {
 		return errors.LockTimeout("global")
 	}
-	defer globalLock.Release()
+	defer func() {
+		_ = globalLock.Release()
+	}()
 
 	var worktreesFreed []string
 	var worktreesRemoved []string

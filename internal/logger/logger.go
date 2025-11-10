@@ -99,7 +99,7 @@ func (l *Logger) log(level LogLevel, format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	logLine := fmt.Sprintf("[%s] %s: %s\n", timestamp, level.String(), message)
 
-	l.writer.Write([]byte(logLine))
+	_, _ = l.writer.Write([]byte(logLine))
 }
 
 // Debug logs a debug message
@@ -169,7 +169,7 @@ func (fl *FieldLogger) log(level LogLevel, format string, args ...interface{}) {
 	}
 
 	logLine := fmt.Sprintf("[%s] %s%s: %s\n", timestamp, level.String(), fieldsStr, message)
-	fl.logger.writer.Write([]byte(logLine))
+	_, _ = fl.logger.writer.Write([]byte(logLine))
 }
 
 // Debug logs a debug message

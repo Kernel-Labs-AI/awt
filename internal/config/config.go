@@ -223,7 +223,7 @@ func (cl *ConfigLoader) Save(config *Config, scope string) error {
 	}
 
 	if err := os.Rename(tempPath, path); err != nil {
-		os.Remove(tempPath)
+		_ = os.Remove(tempPath)
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 

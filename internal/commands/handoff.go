@@ -255,7 +255,9 @@ func runTaskHandoff(opts *HandoffOptions) error {
 			if err != nil {
 				return errors.LockTimeout("global")
 			}
-			defer globalLock.Release()
+			defer func() {
+			_ = globalLock.Release()
+		}()
 
 			// Create git wrapper from repo root
 			repoGit := git.New(r.WorkTreeRoot, false)

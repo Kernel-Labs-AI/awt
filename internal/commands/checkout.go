@@ -115,7 +115,9 @@ func runTaskCheckout(opts *CheckoutOptions) error {
 	if err != nil {
 		return errors.LockTimeout("global")
 	}
-	defer globalLock.Release()
+	defer func() {
+		_ = globalLock.Release()
+	}()
 
 	// Create Git wrapper
 	g := git.New(r.WorkTreeRoot, false)

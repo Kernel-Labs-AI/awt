@@ -60,30 +60,32 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 	defer func() {
 		for key, val := range origValues {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key)
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val)
 			}
 		}
 	}()
 
 	// Set test env vars
-	os.Setenv("AWT_DEFAULT_AGENT", "test-agent")
-	os.Setenv("AWT_BRANCH_PREFIX", "test")
-	os.Setenv("AWT_WORKTREE_DIR", "./test-wt")
-	os.Setenv("AWT_REMOTE_NAME", "upstream")
-	os.Setenv("AWT_LOCK_TIMEOUT", "60")
-	os.Setenv("AWT_REBASE_DEFAULT", "false")
-	os.Setenv("AWT_AUTO_PUSH", "no")
-	os.Setenv("AWT_AUTO_PR", "0")
-	os.Setenv("AWT_VERBOSE_GIT", "true")
+	_ = os.Setenv("AWT_DEFAULT_AGENT", "test-agent")
+	_ = os.Setenv("AWT_BRANCH_PREFIX", "test")
+	_ = os.Setenv("AWT_WORKTREE_DIR", "./test-wt")
+	_ = os.Setenv("AWT_REMOTE_NAME", "upstream")
+	_ = os.Setenv("AWT_LOCK_TIMEOUT", "60")
+	_ = os.Setenv("AWT_REBASE_DEFAULT", "false")
+	_ = os.Setenv("AWT_AUTO_PUSH", "no")
+	_ = os.Setenv("AWT_AUTO_PR", "0")
+	_ = os.Setenv("AWT_VERBOSE_GIT", "true")
 
 	// Create temp dir for config files
 	tempDir, err := os.MkdirTemp("", "awt-config-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	loader := NewConfigLoader(tempDir)
 	cfg, err := loader.Load()
@@ -127,7 +129,9 @@ func TestConfigLoader_SaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	loader := NewConfigLoader(tempDir)
 
@@ -180,7 +184,9 @@ func TestConfigLoader_GetConfigPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	loader := NewConfigLoader(tempDir)
 

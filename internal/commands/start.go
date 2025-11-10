@@ -95,8 +95,8 @@ Example:
 	cmd.Flags().BoolVar(&opts.NoFetch, "no-fetch", false, "skip git fetch")
 	cmd.Flags().BoolVar(&opts.OutputJSON, "json", false, "output result as JSON")
 
-	cmd.MarkFlagRequired("agent")
-	cmd.MarkFlagRequired("title")
+	_ = cmd.MarkFlagRequired("agent")
+	_ = cmd.MarkFlagRequired("title")
 
 	return cmd
 }
@@ -136,7 +136,9 @@ func runTaskStart(opts *StartOptions) error {
 	if err != nil {
 		return errors.LockTimeout("global")
 	}
-	defer globalLock.Release()
+	defer func() {
+		_ = globalLock.Release()
+	}()
 
 	// Generate or validate task ID
 	taskID := opts.ID
@@ -167,11 +169,8 @@ func runTaskStart(opts *StartOptions) error {
 
 	// Fetch unless --no-fetch
 	if !opts.NoFetch {
-		result, err := g.Fetch("", "")
-		if err != nil || result.ExitCode != 0 {
-			// Fetch failed, but continue anyway (might be offline)
-			// TODO: log warning
-		}
+		_, _ = g.Fetch("", "")
+		// Fetch failures are ignored - might be offline
 	}
 
 	// Check if branch already exists
@@ -217,7 +216,7 @@ func runTaskStart(opts *StartOptions) error {
 	if err := store.Save(t); err != nil {
 		// Try to clean up worktree
 		log.Error("Failed to save task, cleaning up worktree")
-		g.WorktreeRemove(worktreePath, true)
+		_, _ = g.WorktreeRemove(worktreePath, true)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	log.Info("Task %s created successfully", taskID)

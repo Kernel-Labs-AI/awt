@@ -19,22 +19,22 @@ func setupTestRepo(t *testing.T) (string, func()) {
 	cmd := exec.Command("git", "init")
 	cmd.Dir = tempDir
 	if err := cmd.Run(); err != nil {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		t.Fatalf("failed to init git repo: %v", err)
 	}
 
 	// Configure git
-	exec.Command("git", "-C", tempDir, "config", "user.name", "Test User").Run()
-	exec.Command("git", "-C", tempDir, "config", "user.email", "test@example.com").Run()
+	_ = exec.Command("git", "-C", tempDir, "config", "user.name", "Test User").Run()
+	_ = exec.Command("git", "-C", tempDir, "config", "user.email", "test@example.com").Run()
 
 	// Create initial commit
 	readmePath := filepath.Join(tempDir, "README.md")
-	os.WriteFile(readmePath, []byte("# Test Repo\n"), 0644)
-	exec.Command("git", "-C", tempDir, "add", "README.md").Run()
-	exec.Command("git", "-C", tempDir, "commit", "-m", "Initial commit").Run()
+	_ = os.WriteFile(readmePath, []byte("# Test Repo\n"), 0644)
+	_ = exec.Command("git", "-C", tempDir, "add", "README.md").Run()
+	_ = exec.Command("git", "-C", tempDir, "commit", "-m", "Initial commit").Run()
 
 	cleanup := func() {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	}
 
 	return tempDir, cleanup

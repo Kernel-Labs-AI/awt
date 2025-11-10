@@ -14,7 +14,9 @@ func TestLockBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 	ctx := context.Background()
@@ -44,7 +46,9 @@ func TestLockBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to acquire lock after release: %v", err)
 	}
-	defer lock2.Release()
+	defer func() {
+		_ = lock2.Release()
+	}()
 }
 
 func TestLockConcurrency(t *testing.T) {
@@ -53,7 +57,9 @@ func TestLockConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 
@@ -75,7 +81,9 @@ func TestLockConcurrency(t *testing.T) {
 				t.Errorf("failed to acquire lock: %v", err)
 				return
 			}
-			defer lock.Release()
+			defer func() {
+			_ = lock.Release()
+		}()
 
 			// Critical section - using mutex to protect counter access
 			// The file lock is what we're testing, the mutex is just for race detector
@@ -108,7 +116,9 @@ func TestTaskLock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 	ctx := context.Background()
@@ -135,8 +145,8 @@ func TestTaskLock(t *testing.T) {
 		t.Error("expected error when acquiring already-held task lock")
 	}
 
-	lock1.Release()
-	lock2.Release()
+	_ = lock1.Release()
+	_ = lock2.Release()
 }
 
 func TestLockTimeout(t *testing.T) {
@@ -145,7 +155,9 @@ func TestLockTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 
@@ -155,7 +167,9 @@ func TestLockTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to acquire lock: %v", err)
 	}
-	defer lock.Release()
+	defer func() {
+		_ = lock.Release()
+	}()
 
 	// Try to acquire with timeout
 	start := time.Now()
@@ -181,7 +195,9 @@ func TestLockCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 	ctx := context.Background()
@@ -191,7 +207,7 @@ func TestLockCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to acquire lock: %v", err)
 	}
-	lock.Release()
+	_ = lock.Release()
 
 	// Run cleanup
 	if err := lm.Cleanup(); err != nil {
@@ -203,7 +219,7 @@ func TestLockCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to acquire lock after cleanup: %v", err)
 	}
-	lock2.Release()
+	_ = lock2.Release()
 }
 
 func TestLockDoubleRelease(t *testing.T) {
@@ -212,7 +228,9 @@ func TestLockDoubleRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	lm := NewLockManager(tempDir)
 	ctx := context.Background()

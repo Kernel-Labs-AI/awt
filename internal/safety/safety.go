@@ -92,7 +92,7 @@ func (v *Validator) ValidateAgentName(agent string) error {
 
 	// Allow alphanumeric, dash, underscore
 	for _, c := range agent {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
 			return fmt.Errorf("agent name can only contain alphanumeric, dash, and underscore")
 		}
 	}
@@ -210,7 +210,7 @@ func (v *Validator) ValidateRemoteName(remote string) error {
 	}
 
 	if strings.Contains(remote, "..") {
-		return fmt.Errorf("remote name cannot contain ..")
+		return fmt.Errorf("remote name cannot contain double dots")
 	}
 
 	// Check for problematic characters

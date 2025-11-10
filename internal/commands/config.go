@@ -276,7 +276,7 @@ func runConfigSet(opts *ConfigOptions, key, value string) error {
 	scopePath, _ := loader.GetConfigPath(opts.Scope)
 	if data, err := os.ReadFile(scopePath); err == nil {
 		cfg = config.Default()
-		json.Unmarshal(data, cfg)
+		_ = json.Unmarshal(data, cfg)
 	} else {
 		cfg = config.Default()
 	}
@@ -319,7 +319,7 @@ func runConfigUnset(opts *ConfigOptions, key string) error {
 	}
 
 	cfg := config.Default()
-	json.Unmarshal(data, cfg)
+	_ = json.Unmarshal(data, cfg)
 
 	// Unset the value (set to zero value)
 	if err := unsetConfigValue(cfg, key); err != nil {
