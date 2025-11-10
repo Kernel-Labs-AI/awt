@@ -64,9 +64,14 @@ func (g *Git) run(args ...string) (*Result, error) {
 	return result, nil
 }
 
-// WorktreeAdd creates a new worktree
+// WorktreeAdd creates a new worktree with a new branch
 func (g *Git) WorktreeAdd(path, branch, baseBranch string) (*Result, error) {
 	return g.run("worktree", "add", "-b", branch, path, baseBranch)
+}
+
+// WorktreeAddExisting creates a worktree for an existing branch
+func (g *Git) WorktreeAddExisting(path, branch string) (*Result, error) {
+	return g.run("worktree", "add", path, branch)
 }
 
 // WorktreeRemove removes a worktree
@@ -77,6 +82,11 @@ func (g *Git) WorktreeRemove(path string, force bool) (*Result, error) {
 	}
 	args = append(args, path)
 	return g.run(args...)
+}
+
+// WorktreePrune prunes worktree information
+func (g *Git) WorktreePrune() (*Result, error) {
+	return g.run("worktree", "prune")
 }
 
 // WorktreeList lists all worktrees
@@ -146,6 +156,16 @@ func (g *Git) Fetch(remote string, refspec string) (*Result, error) {
 	return g.run(args...)
 }
 
+// FetchUnshallow converts a shallow clone to a full clone
+func (g *Git) FetchUnshallow() (*Result, error) {
+	return g.run("fetch", "--unshallow")
+}
+
+// SubmoduleUpdate updates submodules
+func (g *Git) SubmoduleUpdate() (*Result, error) {
+	return g.run("submodule", "update", "--init", "--recursive")
+}
+
 // Rebase performs a rebase
 func (g *Git) Rebase(branch string) (*Result, error) {
 	return g.run("rebase", branch)
@@ -198,6 +218,11 @@ func (g *Git) IsBranchCheckedOut(branch string) (bool, string, error) {
 	return false, "", nil
 }
 
+// Add stages files
+func (g *Git) Add(pathspec string) (*Result, error) {
+	return g.run("add", pathspec)
+}
+
 // Commit creates a commit
 func (g *Git) Commit(message string, all bool, signoff bool, gpgSign bool) (*Result, error) {
 	args := []string{"commit", "-m", message}
@@ -235,7 +260,22 @@ func (g *Git) RevParse(ref string) (string, error) {
 	if result.ExitCode != 0 {
 		return "", fmt.Errorf("git rev-parse failed: %s", result.Stderr)
 	}
-	return result.Stdout, nil
+	return strings.TrimSpace(result.Stdout), nil
+}
+
+// Status returns git status output
+func (g *Git) Status() (*Result, error) {
+	return g.run("status")
+}
+
+// CreatePRWithGH creates a pull request using gh CLI
+func (g *Git) CreatePRWithGH(title, body, base string) (*Result, error) {
+	return g.run("gh", "pr", "create", "--title", title, "--body", body, "--base", base)
+}
+
+// CreateMRWithGLab creates a merge request using glab CLI
+func (g *Git) CreateMRWithGLab(title, description, targetBranch string) (*Result, error) {
+	return g.run("glab", "mr", "create", "--title", title, "--description", description, "--target-branch", targetBranch)
 }
 
 // CurrentBranch returns the current branch name

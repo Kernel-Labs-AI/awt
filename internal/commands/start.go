@@ -46,6 +46,14 @@ func NewTaskCmd() *cobra.Command {
 
 	// Add subcommands
 	cmd.AddCommand(NewTaskStartCmd())
+	cmd.AddCommand(NewTaskStatusCmd())
+	cmd.AddCommand(NewTaskExecCmd())
+	cmd.AddCommand(NewTaskCommitCmd())
+	cmd.AddCommand(NewTaskSyncCmd())
+	cmd.AddCommand(NewTaskHandoffCmd())
+	cmd.AddCommand(NewTaskCheckoutCmd())
+	cmd.AddCommand(NewTaskAdoptCmd())
+	cmd.AddCommand(NewTaskUnlockCmd())
 
 	return cmd
 }

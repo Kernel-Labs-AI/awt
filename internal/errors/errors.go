@@ -21,8 +21,9 @@ const (
 	ExitBranchExists             ExitCode = 20
 	ExitBranchCheckedOutElsewhere ExitCode = 21
 	ExitWorktreeExists           ExitCode = 22
-	ExitDetachFailed             ExitCode = 23
-	ExitRemoveFailed             ExitCode = 24
+	ExitWorktreeNotFound         ExitCode = 23
+	ExitDetachFailed             ExitCode = 24
+	ExitRemoveFailed             ExitCode = 25
 
 	// Sync/push errors (30-39)
 	ExitSyncConflicts ExitCode = 30
@@ -167,6 +168,16 @@ func WorktreeExists(path string) *AWTError {
 		ExitWorktreeExists,
 		fmt.Sprintf("Worktree already exists at: %s", path),
 		"Remove the existing worktree or choose a different path.",
+		nil,
+	)
+}
+
+// WorktreeNotFound creates a WORKTREE_NOT_FOUND error
+func WorktreeNotFound(path string) *AWTError {
+	return New(
+		ExitWorktreeNotFound,
+		fmt.Sprintf("Worktree not found at: %s", path),
+		"The worktree may have been removed. Use 'awt list' to see available tasks.",
 		nil,
 	)
 }
