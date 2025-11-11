@@ -114,6 +114,7 @@ brews:
       owner: kernel-labs-ai
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    folder: Formula
     homepage: https://github.com/kernel-labs-ai/awt
     description: "Agent WorkTrees - Enable multiple AI agents to safely create, use, and hand off Git worktrees"
     license: MIT
