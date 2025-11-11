@@ -201,3 +201,170 @@ func TestCopyResultJSON(t *testing.T) {
 		t.Errorf("FilesCopied length mismatch: got %d, want %d", len(decoded.FilesCopied), len(result.FilesCopied))
 	}
 }
+
+func TestValidateFilePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		// Valid paths
+		{
+			name:    "simple file",
+			path:    ".env",
+			wantErr: false,
+		},
+		{
+			name:    "nested file",
+			path:    "config/local.json",
+			wantErr: false,
+		},
+		{
+			name:    "deeply nested",
+			path:    "foo/bar/baz/file.txt",
+			wantErr: false,
+		},
+		// Invalid paths - path traversal attempts
+		{
+			name:    "parent directory traversal",
+			path:    "../etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "multiple parent traversal",
+			path:    "../../etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "parent in middle",
+			path:    "foo/../../../etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "absolute path unix",
+			path:    "/etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "just parent directory",
+			path:    "..",
+			wantErr: true,
+		},
+		{
+			name:    "parent with trailing",
+			path:    "../",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFilePath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateFilePath(%q) error = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRunTaskCopyPathTraversal(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Start a task first
+	startOpts := &StartOptions{
+		RepoPath:     repoPath,
+		Agent:        "test-agent",
+		Title:        "Test task",
+		Base:         "HEAD",
+		ID:           "test-security-task",
+		NoFetch:      true,
+		BranchPrefix: "awt",
+		WorktreeDir:  ".awt/wt",
+	}
+
+	if err := runTaskStart(startOpts); err != nil {
+		t.Fatalf("failed to start task: %v", err)
+	}
+
+	// Try various path traversal attacks
+	pathTraversalTests := []struct {
+		name string
+		file string
+	}{
+		{"parent directory", "../etc/passwd"},
+		{"multiple parent", "../../etc/passwd"},
+		{"absolute path", "/etc/passwd"},
+		{"nested parent", "foo/../../etc/passwd"},
+	}
+
+	for _, tt := range pathTraversalTests {
+		t.Run(tt.name, func(t *testing.T) {
+			copyOpts := &CopyOptions{
+				RepoPath: repoPath,
+				TaskID:   "test-security-task",
+				Files:    []string{tt.file},
+			}
+
+			err := runTaskCopy(copyOpts)
+			if err == nil {
+				t.Errorf("expected error for path traversal attempt with %q, got nil", tt.file)
+			}
+		})
+	}
+}
+
+func TestIsSubPath(t *testing.T) {
+	tests := []struct {
+		name   string
+		parent string
+		child  string
+		want   bool
+	}{
+		{
+			name:   "direct child",
+			parent: "/home/user/worktree",
+			child:  "/home/user/worktree/file.txt",
+			want:   true,
+		},
+		{
+			name:   "nested child",
+			parent: "/home/user/worktree",
+			child:  "/home/user/worktree/foo/bar/file.txt",
+			want:   true,
+		},
+		{
+			name:   "same path",
+			parent: "/home/user/worktree",
+			child:  "/home/user/worktree",
+			want:   true,
+		},
+		{
+			name:   "outside parent",
+			parent: "/home/user/worktree",
+			child:  "/home/user/other/file.txt",
+			want:   false,
+		},
+		{
+			name:   "parent of parent",
+			parent: "/home/user/worktree",
+			child:  "/home/user",
+			want:   false,
+		},
+		{
+			name:   "sibling",
+			parent: "/home/user/worktree",
+			child:  "/home/user/worktree2/file.txt",
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isSubPath(tt.parent, tt.child)
+			if got != tt.want {
+				t.Errorf("isSubPath(%q, %q) = %v, want %v", tt.parent, tt.child, got, tt.want)
+			}
+		})
+	}
+}

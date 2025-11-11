@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kernel-labs-ai/awt/internal/errors"
 	"github.com/kernel-labs-ai/awt/internal/logger"
@@ -111,8 +112,26 @@ func runTaskCopy(opts *CopyOptions) error {
 	// Copy each file
 	copiedFiles := []string{}
 	for _, file := range opts.Files {
+		// Validate file path to prevent path traversal
+		if err := validateFilePath(file); err != nil {
+			return err
+		}
+
 		sourcePath := filepath.Join(sourceDir, file)
 		destPath := filepath.Join(t.WorktreePath, file)
+
+		// Ensure destination is within worktree (defense in depth)
+		destPathAbs, err := filepath.Abs(destPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve destination path: %w", err)
+		}
+		worktreeAbs, err := filepath.Abs(t.WorktreePath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve worktree path: %w", err)
+		}
+		if !isSubPath(worktreeAbs, destPathAbs) {
+			return fmt.Errorf("invalid file path (outside worktree): %s", file)
+		}
 
 		// Verify source file exists
 		sourceInfo, err := os.Stat(sourcePath)
@@ -191,4 +210,38 @@ func copyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+// validateFilePath validates that a file path is safe (no path traversal)
+func validateFilePath(filePath string) error {
+	// Reject absolute paths
+	if filepath.IsAbs(filePath) {
+		return fmt.Errorf("absolute paths are not allowed: %s", filePath)
+	}
+
+	// Clean the path and check for path traversal
+	cleaned := filepath.Clean(filePath)
+
+	// Check if path tries to escape (contains ..)
+	if strings.HasPrefix(cleaned, "..") || strings.Contains(cleaned, string(filepath.Separator)+"..") {
+		return fmt.Errorf("path traversal is not allowed: %s", filePath)
+	}
+
+	// Additional safety: reject paths that start with separator
+	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
+		return fmt.Errorf("paths starting with separator are not allowed: %s", filePath)
+	}
+
+	return nil
+}
+
+// isSubPath checks if child is a subdirectory of parent
+func isSubPath(parent, child string) bool {
+	// Ensure both paths end with separator for proper prefix checking
+	if !strings.HasSuffix(parent, string(filepath.Separator)) {
+		parent += string(filepath.Separator)
+	}
+
+	// Check if child starts with parent path
+	return strings.HasPrefix(child, parent) || child == strings.TrimSuffix(parent, string(filepath.Separator))
 }
