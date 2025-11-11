@@ -8,24 +8,15 @@
 
 ## Overview
 
-AWT solves the problem of multiple AI agents (like Claude, GPT, etc.) working on the same Git repository simultaneously. It provides:
+AWT solves the problem of multiple AI agents (like Claude Code, Codex, Factory, etc.) working on the same Git repository simultaneously. It provides:
 
 - **Isolated Worktrees**: Each agent gets its own working directory
-- **Safe Concurrency**: File-based locking prevents conflicts
 - **Task Lifecycle**: Track tasks from creation through handoff
 - **Branch Management**: Automatic branch creation and cleanup
 - **Metadata Tracking**: Persistent task state and history
+- **Command isolation**: You can run commands within the worktrees without checking out the branch
 
-## Features
-
-- 🔒 **Safe Concurrency**: POSIX file locking with timeout/retry
-- 🌳 **Git Worktrees**: Isolated working directories per task
-- 📋 **Task Tracking**: JSON-based metadata with atomic writes
-- 🔄 **Lifecycle Management**: NEW → ACTIVE → HANDOFF_READY → MERGED
-- 🛡️ **Safety Rails**: Input validation, path checking, CWD safety
-- ⚙️ **Configuration**: Multi-level config (system/user/repo/env)
-- 📊 **Logging**: Structured logging with levels and fields
-- 🚀 **Fast**: Written in Go, minimal dependencies
+There are many great tools like [Conductor](https://conductor.build) or [HumanLayer](https://www.humanlayer.dev) that let you manage multiple worktrees if you want to adopt a new tool. This is built to just be a tool the agent themselves can use. 
 
 ## Installation
 
@@ -65,18 +56,24 @@ sudo mv awt /usr/local/bin/
 cd /path/to/your/repo
 awt init
 
+# Add .awt to your .gitignore file
+printf "\n.awt\n" >> .gitignore
+
 # Start a new task
 awt task start --agent=claude --title="Add user authentication"
 # Output: Task ID, branch name, worktree path
 
-# Work in the worktree
+# Work in the worktree; coding agents can use this as their cwd
 cd .awt/wt/<task-id>
 # Make changes...
+
+# Run dev server for the worktree
+awt task exec <task-id> -- npm run dev
 
 # Commit changes
 awt task commit <task-id> -m "Implement login endpoint"
 
-# Sync with base branch
+# Pull in changes from main with a rebase
 awt task sync <task-id>
 
 # Complete and hand off (push + create PR)
@@ -101,7 +98,7 @@ awt init [--repo=<path>]
 ```
 
 #### `awt task start`
-Start a new task with isolated worktree.
+Start a new task with isolated worktree. The --agent flag allows you to delegate the same task to multiple agents at once and choose the best output.
 
 ```bash
 awt task start --agent=<name> --title="<description>" [options]
@@ -136,7 +133,7 @@ Options:
 ```
 
 #### `awt task sync`
-Sync task branch with base branch.
+Rebase task branch with base branch.
 
 ```bash
 awt task sync [task-id] [options]
@@ -366,23 +363,6 @@ awt task start --agent=claude --title="Add user auth"
 
 # Agent 2 (GPT)
 awt task start --agent=gpt --title="Add API docs"
-
-# Both agents work independently in their worktrees
-# No conflicts, no stepping on each other's toes
-```
-
-### Code Review Workflow
-
-```bash
-# Reviewer checks out the task
-awt task checkout 20251110-120000-abc123
-
-# Review code in separate worktree
-cd .awt/wt/20251110-120000-abc123
-# Make review comments, test changes...
-
-# Return to main worktree when done
-cd ../../..
 ```
 
 ### Task Handoff Between Agents
