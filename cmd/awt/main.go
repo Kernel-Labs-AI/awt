@@ -39,6 +39,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewPruneCmd())
 	rootCmd.AddCommand(commands.NewConfigCmd())
+	rootCmd.AddCommand(commands.NewAddDocsCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
