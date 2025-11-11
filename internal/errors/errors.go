@@ -257,7 +257,7 @@ func InvalidTaskID(taskID string) *AWTError {
 	return New(
 		ExitInvalidTaskID,
 		fmt.Sprintf("Invalid or unknown task ID: %s", taskID),
-		"Use 'awt list' to see available tasks, or check the task ID format.",
+		"Use 'awt list' to see available tasks. Custom task IDs must not contain special characters (/, \\, :, *, ?, \", <, >, |, etc.) and must be 1-255 characters long.",
 		nil,
 	)
 }

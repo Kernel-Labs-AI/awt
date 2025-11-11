@@ -158,54 +158,197 @@ func TestValidateTaskID(t *testing.T) {
 		id    string
 		valid bool
 	}{
+		// Auto-generated format should still work
 		{
-			name:  "valid",
+			name:  "auto-generated format",
 			id:    "20251110-120000-abc123",
 			valid: true,
 		},
 		{
-			name:  "valid with different hex",
+			name:  "auto-generated with different hex",
 			id:    "20231225-235959-fedcba",
 			valid: true,
 		},
+		// Custom IDs
 		{
-			name:  "too short",
-			id:    "20251110-120000-abc",
-			valid: false,
+			name:  "simple custom id",
+			id:    "my-task",
+			valid: true,
 		},
 		{
-			name:  "too long",
-			id:    "20251110-120000-abc1234",
-			valid: false,
+			name:  "custom id with numbers",
+			id:    "task-123",
+			valid: true,
 		},
 		{
-			name:  "missing parts",
-			id:    "20251110-120000",
-			valid: false,
+			name:  "custom id with underscores",
+			id:    "my_custom_task_id",
+			valid: true,
 		},
 		{
-			name:  "wrong date length",
-			id:    "2025110-120000-abc123",
-			valid: false,
+			name:  "custom id all caps",
+			id:    "URGENT-FIX",
+			valid: true,
 		},
 		{
-			name:  "wrong time length",
-			id:    "20251110-12000-abc123",
-			valid: false,
+			name:  "custom id mixed case",
+			id:    "FeatureBranch",
+			valid: true,
 		},
 		{
-			name:  "wrong random length",
-			id:    "20251110-120000-abc12",
-			valid: false,
+			name:  "custom id with @ symbol",
+			id:    "task@v1.2",
+			valid: true,
 		},
+		{
+			name:  "single character",
+			id:    "a",
+			valid: true,
+		},
+		// Invalid IDs
 		{
 			name:  "empty",
 			id:    "",
 			valid: false,
 		},
 		{
-			name:  "wrong format",
-			id:    "not-a-valid-task-id",
+			name:  "with forward slash",
+			id:    "my/task",
+			valid: false,
+		},
+		{
+			name:  "with backslash",
+			id:    "my\\task",
+			valid: false,
+		},
+		{
+			name:  "with colon",
+			id:    "task:123",
+			valid: false,
+		},
+		{
+			name:  "with asterisk",
+			id:    "task*",
+			valid: false,
+		},
+		{
+			name:  "with question mark",
+			id:    "task?",
+			valid: false,
+		},
+		{
+			name:  "with quotes",
+			id:    "task\"name",
+			valid: false,
+		},
+		{
+			name:  "with less than",
+			id:    "task<123",
+			valid: false,
+		},
+		{
+			name:  "with greater than",
+			id:    "task>123",
+			valid: false,
+		},
+		{
+			name:  "with pipe",
+			id:    "task|name",
+			valid: false,
+		},
+		{
+			name:  "with tilde",
+			id:    "task~123",
+			valid: false,
+		},
+		{
+			name:  "with caret",
+			id:    "task^123",
+			valid: false,
+		},
+		{
+			name:  "with brackets",
+			id:    "task[123",
+			valid: false,
+		},
+		{
+			name:  "with double dot",
+			id:    "task..name",
+			valid: false,
+		},
+		{
+			name:  "with dollar sign",
+			id:    "task$name",
+			valid: false,
+		},
+		{
+			name:  "with backtick",
+			id:    "task`name",
+			valid: false,
+		},
+		{
+			name:  "with ampersand",
+			id:    "task&name",
+			valid: false,
+		},
+		{
+			name:  "with semicolon",
+			id:    "task;name",
+			valid: false,
+		},
+		{
+			name:  "with parentheses",
+			id:    "task(123)",
+			valid: false,
+		},
+		{
+			name:  "with braces",
+			id:    "task{123}",
+			valid: false,
+		},
+		{
+			name:  "with @{ sequence",
+			id:    "task@{123",
+			valid: false,
+		},
+		{
+			name:  "with double slash",
+			id:    "task//name",
+			valid: false,
+		},
+		{
+			name:  "with newline",
+			id:    "task\nname",
+			valid: false,
+		},
+		{
+			name:  "with tab",
+			id:    "task\tname",
+			valid: false,
+		},
+		{
+			name:  "starting with dot",
+			id:    ".hidden",
+			valid: false,
+		},
+		{
+			name:  "ending with dot",
+			id:    "task.",
+			valid: false,
+		},
+		{
+			name:  "starting with space",
+			id:    " task",
+			valid: false,
+		},
+		{
+			name:  "ending with space",
+			id:    "task ",
+			valid: false,
+		},
+		{
+			name:  "too long (over 255 chars)",
+			id:    strings.Repeat("a", 256),
 			valid: false,
 		},
 	}

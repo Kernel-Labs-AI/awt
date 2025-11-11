@@ -62,30 +62,41 @@ func SanitizeName(name string) string {
 }
 
 // ValidateTaskID validates a task ID format
+// Task IDs can be any non-empty string that is safe for use in filenames and Git branch names
 func ValidateTaskID(id string) bool {
-	// Format: YYYYMMDD-HHMMSS-<6hex>
-	// Example: 20251110-134500-abc123 (8+1+6+1+6 = 22 chars)
-	if len(id) != 22 {
+	// Must not be empty
+	if id == "" {
 		return false
 	}
 
-	parts := strings.Split(id, "-")
-	if len(parts) != 3 {
+	// Must not be too long (reasonable limit for filenames and branch names)
+	if len(id) > 255 {
 		return false
 	}
 
-	// Check date part (8 digits)
-	if len(parts[0]) != 8 {
-		return false
+	// Check for invalid characters that would cause issues in:
+	// - Filenames: / \ : * ? " < > |
+	// - Git refs: ~, ^, :, ?, *, [, \, .., @{, //, leading/trailing dots or slashes
+	// - Shell safety: $, `, &, |, ;, <, >, (, ), {, }, newlines, tabs
+	invalidChars := []string{
+		"/", "\\", ":", "*", "?", "\"", "<", ">", "|",
+		"~", "^", "[", "..",
+		"$", "`", "&", ";", "(", ")", "{", "}",
+		"\n", "\r", "\t",
+		"@{", "//",
 	}
 
-	// Check time part (6 digits)
-	if len(parts[1]) != 6 {
-		return false
+	for _, char := range invalidChars {
+		if strings.Contains(id, char) {
+			return false
+		}
 	}
 
-	// Check random part (6 hex chars)
-	if len(parts[2]) != 6 {
+	// Cannot start or end with dots or spaces (problematic for filesystems)
+	if strings.HasPrefix(id, ".") || strings.HasSuffix(id, ".") {
+		return false
+	}
+	if strings.HasPrefix(id, " ") || strings.HasSuffix(id, " ") {
 		return false
 	}
 
