@@ -146,7 +146,7 @@ func TestRunTaskStartInvalidTaskID(t *testing.T) {
 		Agent:        "test-agent",
 		Title:        "Test task",
 		Base:         "HEAD",
-		ID:           "invalid-id",
+		ID:           "invalid/id",  // Use a task ID with invalid character (slash)
 		NoFetch:      true,
 		BranchPrefix: "awt",
 		WorktreeDir:  ".awt/wt",
