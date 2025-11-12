@@ -16,7 +16,18 @@ AWT solves the problem of multiple AI agents (like Claude Code, Codex, Factory, 
 - **Metadata Tracking**: Persistent task state and history
 - **Command isolation**: You can run commands within the worktrees without checking out the branch
 
-There are many great tools like [Conductor](https://conductor.build) or [HumanLayer](https://www.humanlayer.dev) that let you manage multiple worktrees if you want to adopt a new tool. This is built to just be a tool the agent themselves can use. 
+There are many great tools like [Conductor](https://conductor.build) or [HumanLayer](https://www.humanlayer.dev) that let you manage multiple worktrees if you want to adopt a new tool. This is built to just be a tool the agent themselves can use. This is what I put in my AGENTS.md to prompt usage of it:
+
+```
+# Starting a new task
+
+- When you begin working on a new task, use `awt task start --title "xxx" --agent "your_name"` with an appropriate title
+- When you need to commit changes, use `awt task commit`, do not navigate into the cwd and use git manually.
+- When the user asks you to handoff the task, use the `awt task handoff` command with your task ID. 
+- Always give the user your task ID so they can also run commands. 
+
+All AWT commands are in ./docs/AWT_USAGE.md.
+```
 
 ## Installation
 
