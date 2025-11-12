@@ -7,7 +7,6 @@ AWT (Agent WorkTrees) enables multiple AI agents to safely create and use Git wo
 ```bash
 awt init                                              # Initialize AWT in your repo
 awt task start --agent=claude --title="Your task"    # Start a new task
-awt task copy <task-id> .env                          # Copy git-ignored files if needed
 cd .awt/wt/<task-id>                                  # Work in the worktree
 awt task commit <task-id> -m "Your message"          # Commit changes
 awt task sync <task-id>                               # Sync with base branch
@@ -88,22 +87,6 @@ awt task exec <task-id> -- <command> [args...]
 Checkout existing task for review.
 ```bash
 awt task checkout <task-id> [--path=<path>]
-```
-
-### `awt task copy`
-Copy files into a task's worktree.
-```bash
-awt task copy <task-id> <file> [file...] [options]
-
-Options:
-  --source string   Source directory (default: current directory)
-  --json            Output as JSON
-```
-
-Useful for copying git-ignored files (like `.env`) into task worktrees:
-```bash
-awt task copy my-task .env
-awt task copy my-task .env config/local.json
 ```
 
 ### `awt task adopt`
