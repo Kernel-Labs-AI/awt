@@ -57,6 +57,7 @@ func NewTaskCmd() *cobra.Command {
 	cmd.AddCommand(NewTaskAdoptCmd())
 	cmd.AddCommand(NewTaskUnlockCmd())
 	cmd.AddCommand(NewTaskCopyCmd())
+	cmd.AddCommand(NewTaskEditorCmd())
 
 	return cmd
 }

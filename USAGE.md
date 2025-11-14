@@ -83,6 +83,17 @@ Execute a command in task's worktree.
 awt task exec <task-id> -- <command> [args...]
 ```
 
+### `awt task editor`
+Open your default editor in task's worktree.
+```bash
+awt task editor [task-id] [options]
+
+Options:
+  --editor string   Editor to use (defaults to $EDITOR)
+  --branch string   Branch name
+  --repo string     Path to Git repository
+```
+
 ### `awt task checkout`
 Checkout existing task for review.
 ```bash
