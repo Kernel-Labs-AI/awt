@@ -83,6 +83,26 @@ Execute a command in task's worktree.
 awt task exec <task-id> -- <command> [args...]
 ```
 
+### `awt task copy`
+Copy files into a task's worktree.
+```bash
+awt task copy <task-id> <file> [file...] [options]
+
+Options:
+  --source string   Source directory (default: current directory)
+  --repo string     Path to Git repository
+  --json            Output result as JSON
+```
+
+This is useful for copying files that are git-ignored (like .env files) into a task's worktree so agents can use them. The command preserves directory structure when copying.
+
+Example:
+```bash
+awt task copy my-task .env
+awt task copy my-task .env config/local.json
+awt task copy my-task .env --source=/path/to/source
+```
+
 ### `awt task editor`
 Open your default editor in task's worktree.
 ```bash
