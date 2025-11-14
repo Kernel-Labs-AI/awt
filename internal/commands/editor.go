@@ -110,7 +110,7 @@ func runTaskEditor(opts *EditorOptions) error {
 	}
 	if editor == "" {
 		// Try common editors
-		for _, e := range []string{"code", "vim", "nano", "vi"} {
+		for _, e := range []string{"cursor","code", "vim", "nano", "vi"} {
 			if _, err := exec.LookPath(e); err == nil {
 				editor = e
 				break
