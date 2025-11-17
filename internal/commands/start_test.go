@@ -2,9 +2,11 @@ package commands
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -146,7 +148,7 @@ func TestRunTaskStartInvalidTaskID(t *testing.T) {
 		Agent:        "test-agent",
 		Title:        "Test task",
 		Base:         "HEAD",
-		ID:           "invalid/id",  // Use a task ID with invalid character (slash)
+		ID:           "invalid/id", // Use a task ID with invalid character (slash)
 		NoFetch:      true,
 		BranchPrefix: "awt",
 		WorktreeDir:  ".awt/wt",
@@ -183,5 +185,63 @@ func TestStartResultJSON(t *testing.T) {
 	}
 	if decoded.WorktreePath != result.WorktreePath {
 		t.Errorf("WorktreePath mismatch: got %q, want %q", decoded.WorktreePath, result.WorktreePath)
+	}
+}
+
+func TestRunTaskStartSetsUpstreamTracking(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Add a remote for testing
+	_ = exec.Command("git", "-C", repoPath, "remote", "add", "origin", "https://example.com/repo.git").Run()
+
+	// Initialize AWT config directory
+	awtConfigDir := filepath.Join(repoPath, ".git", "awt")
+	_ = os.MkdirAll(awtConfigDir, 0755)
+
+	opts := &StartOptions{
+		RepoPath:     repoPath,
+		Agent:        "test-agent",
+		Title:        "Test task with upstream tracking",
+		Base:         "HEAD",
+		ID:           "20251110-120000-test123",
+		NoFetch:      true,
+		BranchPrefix: "awt",
+		WorktreeDir:  ".awt/wt",
+	}
+
+	err := runTaskStart(opts)
+	if err != nil {
+		t.Fatalf("runTaskStart() failed: %v", err)
+	}
+
+	// Verify worktree exists
+	worktreePath := filepath.Join(repoPath, opts.WorktreeDir, opts.ID)
+	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		t.Fatal("worktree was not created")
+	}
+
+	// Check that upstream tracking is set correctly by checking git config
+	expectedBranch := fmt.Sprintf("awt/%s/%s", opts.Agent, opts.ID)
+
+	remoteCmd := exec.Command("git", "-C", worktreePath, "config", fmt.Sprintf("branch.%s.remote", expectedBranch))
+	remoteOutput, err := remoteCmd.Output()
+	if err != nil {
+		t.Fatalf("failed to check remote config: %v", err)
+	}
+	remote := strings.TrimSpace(string(remoteOutput))
+	if remote != "origin" {
+		t.Errorf("branch remote = %q, want %q", remote, "origin")
+	}
+
+	mergeCmd := exec.Command("git", "-C", worktreePath, "config", fmt.Sprintf("branch.%s.merge", expectedBranch))
+	mergeOutput, err := mergeCmd.Output()
+	if err != nil {
+		t.Fatalf("failed to check merge config: %v", err)
+	}
+	mergeRef := strings.TrimSpace(string(mergeOutput))
+	expectedMergeRef := fmt.Sprintf("refs/remotes/origin/%s", expectedBranch)
+	if mergeRef != expectedMergeRef {
+		t.Errorf("branch merge ref = %q, want %q", mergeRef, expectedMergeRef)
 	}
 }

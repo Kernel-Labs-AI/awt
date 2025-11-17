@@ -1,9 +1,11 @@
 package git
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -344,4 +346,58 @@ func TestGitWorktreePrune(t *testing.T) {
 	if result.ExitCode != 0 {
 		t.Errorf("WorktreePrune returned non-zero exit code: %d", result.ExitCode)
 	}
+}
+
+func TestGitSetUpstream(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a remote for testing
+	_ = exec.Command("git", "-C", repoPath, "remote", "add", "origin", "https://example.com/repo.git").Run()
+
+	// Get current branch
+	g := New(repoPath, false)
+	currentBranch, err := g.CurrentBranch()
+	if err != nil {
+		t.Fatalf("CurrentBranch failed: %v", err)
+	}
+
+	// Create a new branch
+	testBranch := "test-upstream-branch"
+	_ = exec.Command("git", "-C", repoPath, "checkout", "-b", testBranch).Run()
+
+	// Set upstream
+	result, err := g.SetUpstream("origin", testBranch)
+	if err != nil {
+		t.Fatalf("SetUpstream failed: %v", err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("SetUpstream returned non-zero exit code: %d, stderr: %s", result.ExitCode, result.Stderr)
+	}
+
+	// Verify upstream was set correctly by checking git config
+	remoteCmd := exec.Command("git", "-C", repoPath, "config", fmt.Sprintf("branch.%s.remote", testBranch))
+	remoteOutput, err := remoteCmd.Output()
+	if err != nil {
+		t.Fatalf("failed to check remote config: %v", err)
+	}
+	remote := strings.TrimSpace(string(remoteOutput))
+	if remote != "origin" {
+		t.Errorf("branch remote = %q, want %q", remote, "origin")
+	}
+
+	mergeCmd := exec.Command("git", "-C", repoPath, "config", fmt.Sprintf("branch.%s.merge", testBranch))
+	mergeOutput, err := mergeCmd.Output()
+	if err != nil {
+		t.Fatalf("failed to check merge config: %v", err)
+	}
+	mergeRef := strings.TrimSpace(string(mergeOutput))
+	expectedMergeRef := fmt.Sprintf("refs/remotes/origin/%s", testBranch)
+	if mergeRef != expectedMergeRef {
+		t.Errorf("branch merge ref = %q, want %q", mergeRef, expectedMergeRef)
+	}
+
+	// Switch back to original branch
+	_ = exec.Command("git", "-C", repoPath, "checkout", currentBranch).Run()
+	_ = exec.Command("git", "-C", repoPath, "branch", "-D", testBranch).Run()
 }

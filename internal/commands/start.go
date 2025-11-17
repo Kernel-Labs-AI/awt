@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/kernel-labs-ai/awt/internal/config"
 	"github.com/kernel-labs-ai/awt/internal/errors"
 	"github.com/kernel-labs-ai/awt/internal/git"
 	"github.com/kernel-labs-ai/awt/internal/idgen"
@@ -20,15 +21,15 @@ import (
 
 // StartOptions contains options for the start command
 type StartOptions struct {
-	RepoPath      string
-	Agent         string
-	Title         string
-	Base          string
-	ID            string
-	NoFetch       bool
-	BranchPrefix  string
-	WorktreeDir   string
-	OutputJSON    bool
+	RepoPath     string
+	Agent        string
+	Title        string
+	Base         string
+	ID           string
+	NoFetch      bool
+	BranchPrefix string
+	WorktreeDir  string
+	OutputJSON   bool
 }
 
 // StartResult represents the output of the start command
@@ -128,6 +129,13 @@ func runTaskStart(opts *StartOptions) error {
 	}
 	log.Debug("Repository discovered at %s", r.WorkTreeRoot)
 
+	// Load config to get remote name
+	configLoader := config.NewConfigLoader(r.GitCommonDir)
+	cfg, err := configLoader.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	// Create Git wrapper
 	g := git.New(r.WorkTreeRoot, false)
 
@@ -198,6 +206,17 @@ func runTaskStart(opts *StartOptions) error {
 	result, err := g.WorktreeAdd(worktreePath, branchName, opts.Base)
 	if err != nil || result.ExitCode != 0 {
 		return fmt.Errorf("failed to create worktree: %s", result.Stderr)
+	}
+
+	// Set upstream tracking branch to origin/<branchName>
+	// This ensures the branch tracks the remote branch with the same name
+	wtGit := git.New(worktreePath, false)
+	setUpstreamResult, err := wtGit.SetUpstream(cfg.RemoteName, branchName)
+	if err != nil || setUpstreamResult.ExitCode != 0 {
+		// Non-fatal: log warning but continue
+		log.Debug("Failed to set upstream tracking (non-fatal): %s", setUpstreamResult.Stderr)
+	} else {
+		log.Debug("Set upstream tracking to %s/%s", cfg.RemoteName, branchName)
 	}
 
 	// Create task metadata

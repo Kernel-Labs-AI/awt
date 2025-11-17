@@ -291,3 +291,28 @@ func (g *Git) CurrentBranch() (string, error) {
 	}
 	return result.Stdout, nil
 }
+
+// SetUpstream sets the upstream tracking branch for the current branch
+// This uses git config to set the tracking, which works even if the remote branch doesn't exist yet
+func (g *Git) SetUpstream(remote, branch string) (*Result, error) {
+	// Get current branch first
+	currentBranch, err := g.CurrentBranch()
+	if err != nil {
+		return &Result{ExitCode: 1, Stderr: fmt.Sprintf("failed to get current branch: %v", err)}, err
+	}
+
+	// Set the upstream using git config (works even if remote branch doesn't exist)
+	upstreamRef := fmt.Sprintf("refs/remotes/%s/%s", remote, branch)
+	configKey := fmt.Sprintf("branch.%s.remote", currentBranch)
+	configMergeKey := fmt.Sprintf("branch.%s.merge", currentBranch)
+
+	// Set remote
+	remoteResult, err := g.run("config", configKey, remote)
+	if err != nil || remoteResult.ExitCode != 0 {
+		return remoteResult, err
+	}
+
+	// Set merge ref
+	mergeResult, err := g.run("config", configMergeKey, upstreamRef)
+	return mergeResult, err
+}
