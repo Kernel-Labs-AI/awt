@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -169,11 +170,17 @@ func runTaskStart(opts *StartOptions) error {
 		return fmt.Errorf("invalid branch name: %w", err)
 	}
 
-	// Generate worktree path
-	worktreePath := filepath.Join(r.WorkTreeRoot, opts.WorktreeDir, taskID)
+	// Generate worktree path using config (supports global worktree directory)
+	worktreePath := cfg.GetWorktreePath(r.WorkTreeRoot, taskID)
+
+	// Ensure worktree parent directory exists (for global paths)
+	worktreeParent := filepath.Dir(worktreePath)
+	if err := os.MkdirAll(worktreeParent, 0755); err != nil {
+		return fmt.Errorf("failed to create worktree parent directory: %w", err)
+	}
 
 	// Validate worktree path
-	if err := validator.ValidateWorktreePath(worktreePath, r.WorkTreeRoot); err != nil {
+	if err := validator.ValidateWorktreePath(worktreePath, r.WorkTreeRoot, cfg.GlobalWorktreeDir); err != nil {
 		return fmt.Errorf("invalid worktree path: %w", err)
 	}
 

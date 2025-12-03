@@ -246,12 +246,24 @@ func TestValidateWorktreePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateWorktreePath(tt.path, tt.repoRoot)
+			// Test with empty globalWorktreeDir (local worktree mode)
+			err := v.ValidateWorktreePath(tt.path, tt.repoRoot, "")
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateWorktreePath(%q, %q) error = %v, wantErr %v", tt.path, tt.repoRoot, err, tt.wantErr)
+				t.Errorf("ValidateWorktreePath(%q, %q, \"\") error = %v, wantErr %v", tt.path, tt.repoRoot, err, tt.wantErr)
 			}
 		})
 	}
+
+	// Test global worktree dir functionality
+	t.Run("valid path in global worktree dir", func(t *testing.T) {
+		globalDir := filepath.Join(tempDir, "global-awt")
+		worktreePath := filepath.Join(globalDir, "project-abc123", "task-001")
+		// Path within global dir should be valid even if outside repo root
+		err := v.ValidateWorktreePath(worktreePath, tempDir, globalDir)
+		if err != nil {
+			t.Errorf("ValidateWorktreePath with global dir failed unexpectedly: %v", err)
+		}
+	})
 }
 
 func TestIsSafeToRemoveWorktree(t *testing.T) {

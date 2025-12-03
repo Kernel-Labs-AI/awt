@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,6 +18,12 @@ func TestDefault(t *testing.T) {
 	}
 	if cfg.WorktreeDir != "./wt" {
 		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, "./wt")
+	}
+	// GlobalWorktreeDir should default to ~/.awt
+	homeDir, _ := os.UserHomeDir()
+	expectedGlobalDir := filepath.Join(homeDir, ".awt")
+	if cfg.GlobalWorktreeDir != expectedGlobalDir {
+		t.Errorf("GlobalWorktreeDir = %q, want %q", cfg.GlobalWorktreeDir, expectedGlobalDir)
 	}
 	if !cfg.RebaseDefault {
 		t.Error("RebaseDefault should be true by default")
@@ -45,6 +52,7 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 		"AWT_DEFAULT_AGENT",
 		"AWT_BRANCH_PREFIX",
 		"AWT_WORKTREE_DIR",
+		"AWT_GLOBAL_WORKTREE_DIR",
 		"AWT_REMOTE_NAME",
 		"AWT_LOCK_TIMEOUT",
 		"AWT_REBASE_DEFAULT",
@@ -71,6 +79,7 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 	_ = os.Setenv("AWT_DEFAULT_AGENT", "test-agent")
 	_ = os.Setenv("AWT_BRANCH_PREFIX", "test")
 	_ = os.Setenv("AWT_WORKTREE_DIR", "./test-wt")
+	_ = os.Setenv("AWT_GLOBAL_WORKTREE_DIR", "/custom/global/awt")
 	_ = os.Setenv("AWT_REMOTE_NAME", "upstream")
 	_ = os.Setenv("AWT_LOCK_TIMEOUT", "60")
 	_ = os.Setenv("AWT_REBASE_DEFAULT", "false")
@@ -102,6 +111,9 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 	}
 	if cfg.WorktreeDir != "./test-wt" {
 		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, "./test-wt")
+	}
+	if cfg.GlobalWorktreeDir != "/custom/global/awt" {
+		t.Errorf("GlobalWorktreeDir = %q, want %q", cfg.GlobalWorktreeDir, "/custom/global/awt")
 	}
 	if cfg.RemoteName != "upstream" {
 		t.Errorf("RemoteName = %q, want %q", cfg.RemoteName, "upstream")
@@ -248,6 +260,137 @@ func TestParseBool(t *testing.T) {
 			got := parseBool(tt.input)
 			if got != tt.expected {
 				t.Errorf("parseBool(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetWorktreePath(t *testing.T) {
+	tests := []struct {
+		name             string
+		globalWorktreeDir string
+		worktreeDir      string
+		repoRoot         string
+		taskID           string
+		wantContains     string
+	}{
+		{
+			name:             "global worktree path",
+			globalWorktreeDir: "/home/user/.awt",
+			worktreeDir:      "./wt",
+			repoRoot:         "/home/user/myproject",
+			taskID:           "20250101-120000-abc123",
+			wantContains:     "/.awt/",
+		},
+		{
+			name:             "local worktree path when global is empty",
+			globalWorktreeDir: "",
+			worktreeDir:      "./wt",
+			repoRoot:         "/home/user/myproject",
+			taskID:           "20250101-120000-abc123",
+			wantContains:     "/myproject/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				GlobalWorktreeDir: tt.globalWorktreeDir,
+				WorktreeDir:      tt.worktreeDir,
+			}
+			got := cfg.GetWorktreePath(tt.repoRoot, tt.taskID)
+
+			if tt.globalWorktreeDir != "" {
+				// Should use global path
+				if !strings.HasPrefix(got, tt.globalWorktreeDir) {
+					t.Errorf("GetWorktreePath() = %q, want prefix %q", got, tt.globalWorktreeDir)
+				}
+				// Should include task ID
+				if !strings.HasSuffix(got, tt.taskID) {
+					t.Errorf("GetWorktreePath() = %q, want suffix %q", got, tt.taskID)
+				}
+			} else {
+				// Should use local path
+				if !strings.HasPrefix(got, tt.repoRoot) {
+					t.Errorf("GetWorktreePath() = %q, want prefix %q", got, tt.repoRoot)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateProjectID(t *testing.T) {
+	tests := []struct {
+		name     string
+		repoRoot string
+	}{
+		{
+			name:     "simple path",
+			repoRoot: "/home/user/myproject",
+		},
+		{
+			name:     "path with special chars",
+			repoRoot: "/home/user/my project.v2",
+		},
+		{
+			name:     "deeply nested path",
+			repoRoot: "/Users/developer/code/company/team/project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GenerateProjectID(tt.repoRoot)
+
+			// Should not be empty
+			if got == "" {
+				t.Error("GenerateProjectID() returned empty string")
+			}
+
+			// Should contain directory name (possibly sanitized)
+			dirName := filepath.Base(tt.repoRoot)
+			// The sanitized version should be a prefix
+			if len(got) < 8 {
+				t.Errorf("GenerateProjectID() = %q, too short", got)
+			}
+
+			// Should be deterministic (same input = same output)
+			got2 := GenerateProjectID(tt.repoRoot)
+			if got != got2 {
+				t.Errorf("GenerateProjectID() not deterministic: %q != %q", got, got2)
+			}
+
+			// Different paths should produce different IDs
+			differentPath := tt.repoRoot + "/different"
+			gotDifferent := GenerateProjectID(differentPath)
+			if got == gotDifferent {
+				t.Errorf("GenerateProjectID() produced same ID for different paths: %q", got)
+			}
+
+			// Log the result for manual verification
+			t.Logf("repoRoot=%q -> projectID=%q (dirName=%q)", tt.repoRoot, got, dirName)
+		})
+	}
+}
+
+func TestSanitizeForPath(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"myproject", "myproject"},
+		{"my project", "my-project"},
+		{"my.project", "my-project"},
+		{"my_project-v2", "my_project-v2"},
+		{"Project123", "Project123"},
+		{"project@special!", "projectspecial"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := sanitizeForPath(tt.input)
+			if got != tt.expected {
+				t.Errorf("sanitizeForPath(%q) = %q, want %q", tt.input, got, tt.expected)
 			}
 		})
 	}

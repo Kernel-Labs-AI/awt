@@ -11,6 +11,7 @@
 AWT solves the problem of multiple AI agents (like Claude Code, Codex, Factory, etc.) working on the same Git repository simultaneously. It provides:
 
 - **Isolated Worktrees**: Each agent gets its own working directory
+- **Global Worktree Storage**: Worktrees are stored in `~/.awt/` by default, preventing agents from seeing each other's work
 - **Task Lifecycle**: Track tasks from creation through handoff
 - **Branch Management**: Automatic branch creation and cleanup
 - **Metadata Tracking**: Persistent task state and history
@@ -67,15 +68,12 @@ sudo mv awt /usr/local/bin/
 cd /path/to/your/repo
 awt init
 
-# Add .awt to your .gitignore file
-printf "\n.awt\n" >> .gitignore
-
 # Start a new task
 awt task start --agent=claude --title="Add user authentication"
 # Output: Task ID, branch name, worktree path
 
-# Work in the worktree; coding agents can use this as their cwd
-cd .awt/wt/<task-id>
+# Work in the worktree (located at ~/.awt/<project-id>/<task-id>)
+cd ~/.awt/<project-id>/<task-id>
 # Make changes...
 
 # Run dev server for the worktree
@@ -263,7 +261,8 @@ AWT supports multi-level configuration with the following precedence (highest to
 |---------|-------------|---------|--------------|
 | `default_agent` | Default agent name | `unknown` | `AWT_DEFAULT_AGENT` |
 | `branch_prefix` | Branch prefix | `awt` | `AWT_BRANCH_PREFIX` |
-| `worktree_dir` | Worktree directory | `./wt` | `AWT_WORKTREE_DIR` |
+| `global_worktree_dir` | Global worktree directory | `~/.awt` | `AWT_GLOBAL_WORKTREE_DIR` |
+| `worktree_dir` | Local worktree directory (used when global is empty) | `./wt` | `AWT_WORKTREE_DIR` |
 | `rebase_default` | Use rebase for sync | `true` | `AWT_REBASE_DEFAULT` |
 | `auto_push` | Auto-push on handoff | `true` | `AWT_AUTO_PUSH` |
 | `auto_pr` | Auto-create PR on handoff | `true` | `AWT_AUTO_PR` |
@@ -277,13 +276,22 @@ AWT supports multi-level configuration with the following precedence (highest to
 {
   "default_agent": "claude",
   "branch_prefix": "agent",
-  "worktree_dir": "./worktrees",
+  "global_worktree_dir": "~/.awt",
   "rebase_default": true,
   "auto_push": true,
   "auto_pr": true,
   "remote_name": "origin",
   "lock_timeout": 60,
   "verbose_git": false
+}
+```
+
+To disable global worktrees and use local paths instead (legacy behavior):
+
+```json
+{
+  "global_worktree_dir": "",
+  "worktree_dir": "./.awt/wt"
 }
 ```
 
@@ -305,21 +313,29 @@ NEW → ACTIVE → HANDOFF_READY → MERGED
 
 ### Directory Structure
 
+AWT uses a **global worktree directory** (`~/.awt` by default) to store worktrees outside the repository. This prevents multiple agents from seeing each other's work and keeps your repository clean.
+
 ```
+~/.awt/                              # Global worktree directory
+└── <project-name>-<hash>/           # Project-specific directory
+    └── <task-id>/                   # Task worktree
+        └── [working files]
+
 your-repo/
-├── .git/
-│   └── awt/
-│       ├── version          # AWT version
-│       ├── config.json      # Repository config
-│       ├── tasks/           # Task metadata
-│       │   └── <id>.json
-│       └── locks/           # Lock files
-│           ├── global.lock
-│           └── task-<id>.lock
-└── .awt/
-    └── wt/                  # Worktrees
-        └── <id>/            # Task worktree
+└── .git/
+    └── awt/
+        ├── version                  # AWT version
+        ├── config.json              # Repository config
+        ├── tasks/                   # Task metadata
+        │   └── <id>.json
+        └── locks/                   # Lock files
+            ├── global.lock
+            └── task-<id>.lock
 ```
+
+The project identifier is generated from the repository directory name and a hash of its absolute path, ensuring uniqueness across different projects with the same name. For example:
+- `/Users/dev/myproject` → `~/.awt/myproject-87da903d/`
+- `/Users/dev/work/myproject` → `~/.awt/myproject-a1b2c3d4/`
 
 ### Task Metadata
 
@@ -334,7 +350,7 @@ Each task is stored as JSON at `.git/awt/tasks/<id>.json`:
   "base": "origin/main",
   "created_at": "2025-11-10T12:00:00Z",
   "state": "ACTIVE",
-  "worktree_path": "/path/to/repo/.awt/wt/20251110-120000-abc123",
+  "worktree_path": "/Users/dev/.awt/myproject-87da903d/20251110-120000-abc123",
   "last_commit": "sha1...",
   "pr_url": ""
 }
@@ -416,6 +432,10 @@ git branch -d awt/agent/old-task-id
 # Solution: Check task status and recreate if needed
 awt task status <task-id>
 awt prune  # Clean up orphaned metadata
+
+# Worktrees are stored globally at ~/.awt/<project-id>/<task-id>
+# Check if the directory exists:
+ls -la ~/.awt/
 ```
 
 ### CWD Inside Worktree
