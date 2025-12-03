@@ -180,7 +180,7 @@ func runTaskStart(opts *StartOptions) error {
 	}
 
 	// Validate worktree path
-	if err := validator.ValidateWorktreePath(worktreePath, r.WorkTreeRoot, cfg.GlobalWorktreeDir); err != nil {
+	if err := validator.ValidateWorktreePath(worktreePath, r.WorkTreeRoot); err != nil {
 		return fmt.Errorf("invalid worktree path: %w", err)
 	}
 

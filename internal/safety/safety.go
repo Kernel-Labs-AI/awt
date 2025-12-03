@@ -101,8 +101,7 @@ func (v *Validator) ValidateAgentName(agent string) error {
 }
 
 // ValidateWorktreePath validates a worktree path
-// globalWorktreeDir is optional - if set, allows paths within it
-func (v *Validator) ValidateWorktreePath(path, repoRoot, globalWorktreeDir string) error {
+func (v *Validator) ValidateWorktreePath(path, repoRoot string) error {
 	if path == "" {
 		return fmt.Errorf("worktree path cannot be empty")
 	}
@@ -125,15 +124,6 @@ func (v *Validator) ValidateWorktreePath(path, repoRoot, globalWorktreeDir strin
 		}
 		if len(entries) > 0 {
 			return fmt.Errorf("directory is not empty: %s", absPath)
-		}
-	}
-
-	// If using global worktree dir, validate it's within that directory
-	if globalWorktreeDir != "" {
-		absGlobalDir, _ := filepath.Abs(globalWorktreeDir)
-		if strings.HasPrefix(absPath, absGlobalDir+string(filepath.Separator)) {
-			// Path is within global worktree dir - this is valid
-			return nil
 		}
 	}
 

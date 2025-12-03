@@ -261,8 +261,7 @@ AWT supports multi-level configuration with the following precedence (highest to
 |---------|-------------|---------|--------------|
 | `default_agent` | Default agent name | `unknown` | `AWT_DEFAULT_AGENT` |
 | `branch_prefix` | Branch prefix | `awt` | `AWT_BRANCH_PREFIX` |
-| `global_worktree_dir` | Global worktree directory | `~/.awt` | `AWT_GLOBAL_WORKTREE_DIR` |
-| `worktree_dir` | Local worktree directory (used when global is empty) | `./wt` | `AWT_WORKTREE_DIR` |
+| `worktree_dir` | Worktree directory | `~/.awt` | `AWT_WORKTREE_DIR` |
 | `rebase_default` | Use rebase for sync | `true` | `AWT_REBASE_DEFAULT` |
 | `auto_push` | Auto-push on handoff | `true` | `AWT_AUTO_PUSH` |
 | `auto_pr` | Auto-create PR on handoff | `true` | `AWT_AUTO_PR` |
@@ -276,7 +275,7 @@ AWT supports multi-level configuration with the following precedence (highest to
 {
   "default_agent": "claude",
   "branch_prefix": "agent",
-  "global_worktree_dir": "~/.awt",
+  "worktree_dir": "~/.awt",
   "rebase_default": true,
   "auto_push": true,
   "auto_pr": true,
@@ -286,12 +285,11 @@ AWT supports multi-level configuration with the following precedence (highest to
 }
 ```
 
-To disable global worktrees and use local paths instead (legacy behavior):
+By default, we use a global directory for worktrees to avoid issues with coding agents grepping in a project folder and finding changes from other agent tasks. To use local worktrees instead of the global directory you can just set a relative local path:
 
 ```json
 {
-  "global_worktree_dir": "",
-  "worktree_dir": "./.awt/wt"
+  "worktree_dir": "./awt"
 }
 ```
 

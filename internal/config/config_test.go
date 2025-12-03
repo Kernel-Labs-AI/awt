@@ -16,14 +16,11 @@ func TestDefault(t *testing.T) {
 	if cfg.BranchPrefix != "awt" {
 		t.Errorf("BranchPrefix = %q, want %q", cfg.BranchPrefix, "awt")
 	}
-	if cfg.WorktreeDir != "./wt" {
-		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, "./wt")
-	}
-	// GlobalWorktreeDir should default to ~/.awt
+	// WorktreeDir should default to ~/.awt
 	homeDir, _ := os.UserHomeDir()
-	expectedGlobalDir := filepath.Join(homeDir, ".awt")
-	if cfg.GlobalWorktreeDir != expectedGlobalDir {
-		t.Errorf("GlobalWorktreeDir = %q, want %q", cfg.GlobalWorktreeDir, expectedGlobalDir)
+	expectedWorktreeDir := filepath.Join(homeDir, ".awt")
+	if cfg.WorktreeDir != expectedWorktreeDir {
+		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, expectedWorktreeDir)
 	}
 	if !cfg.RebaseDefault {
 		t.Error("RebaseDefault should be true by default")
@@ -52,7 +49,6 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 		"AWT_DEFAULT_AGENT",
 		"AWT_BRANCH_PREFIX",
 		"AWT_WORKTREE_DIR",
-		"AWT_GLOBAL_WORKTREE_DIR",
 		"AWT_REMOTE_NAME",
 		"AWT_LOCK_TIMEOUT",
 		"AWT_REBASE_DEFAULT",
@@ -78,8 +74,7 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 	// Set test env vars
 	_ = os.Setenv("AWT_DEFAULT_AGENT", "test-agent")
 	_ = os.Setenv("AWT_BRANCH_PREFIX", "test")
-	_ = os.Setenv("AWT_WORKTREE_DIR", "./test-wt")
-	_ = os.Setenv("AWT_GLOBAL_WORKTREE_DIR", "/custom/global/awt")
+	_ = os.Setenv("AWT_WORKTREE_DIR", "/custom/worktrees")
 	_ = os.Setenv("AWT_REMOTE_NAME", "upstream")
 	_ = os.Setenv("AWT_LOCK_TIMEOUT", "60")
 	_ = os.Setenv("AWT_REBASE_DEFAULT", "false")
@@ -109,11 +104,8 @@ func TestConfigLoader_LoadFromEnv(t *testing.T) {
 	if cfg.BranchPrefix != "test" {
 		t.Errorf("BranchPrefix = %q, want %q", cfg.BranchPrefix, "test")
 	}
-	if cfg.WorktreeDir != "./test-wt" {
-		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, "./test-wt")
-	}
-	if cfg.GlobalWorktreeDir != "/custom/global/awt" {
-		t.Errorf("GlobalWorktreeDir = %q, want %q", cfg.GlobalWorktreeDir, "/custom/global/awt")
+	if cfg.WorktreeDir != "/custom/worktrees" {
+		t.Errorf("WorktreeDir = %q, want %q", cfg.WorktreeDir, "/custom/worktrees")
 	}
 	if cfg.RemoteName != "upstream" {
 		t.Errorf("RemoteName = %q, want %q", cfg.RemoteName, "upstream")
@@ -267,53 +259,63 @@ func TestParseBool(t *testing.T) {
 
 func TestGetWorktreePath(t *testing.T) {
 	tests := []struct {
-		name             string
-		globalWorktreeDir string
-		worktreeDir      string
-		repoRoot         string
-		taskID           string
-		wantContains     string
+		name        string
+		worktreeDir string
+		repoRoot    string
+		taskID      string
+		wantPrefix  string // Expected prefix (for relative paths, this will be repoRoot + worktreeDir)
 	}{
 		{
-			name:             "global worktree path",
-			globalWorktreeDir: "/home/user/.awt",
-			worktreeDir:      "./wt",
-			repoRoot:         "/home/user/myproject",
-			taskID:           "20250101-120000-abc123",
-			wantContains:     "/.awt/",
+			name:        "absolute worktree path",
+			worktreeDir: "/home/user/.awt",
+			repoRoot:    "/home/user/myproject",
+			taskID:      "20250101-120000-abc123",
+			wantPrefix:  "/home/user/.awt",
 		},
 		{
-			name:             "local worktree path when global is empty",
-			globalWorktreeDir: "",
-			worktreeDir:      "./wt",
-			repoRoot:         "/home/user/myproject",
-			taskID:           "20250101-120000-abc123",
-			wantContains:     "/myproject/",
+			name:        "custom absolute worktree path",
+			worktreeDir: "/custom/worktrees",
+			repoRoot:    "/home/user/myproject",
+			taskID:      "20250101-120000-abc123",
+			wantPrefix:  "/custom/worktrees",
+		},
+		{
+			name:        "relative worktree path",
+			worktreeDir: "awt",
+			repoRoot:    "/home/user/myproject",
+			taskID:      "20250101-120000-abc123",
+			wantPrefix:  "/home/user/myproject/awt", // Relative path is joined with repoRoot
+		},
+		{
+			name:        "relative worktree path with dot",
+			worktreeDir: "./wt",
+			repoRoot:    "/home/user/myproject",
+			taskID:      "20250101-120000-abc123",
+			wantPrefix:  "/home/user/myproject/wt", // ./wt is relative, joined with repoRoot
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{
-				GlobalWorktreeDir: tt.globalWorktreeDir,
-				WorktreeDir:      tt.worktreeDir,
+				WorktreeDir: tt.worktreeDir,
 			}
 			got := cfg.GetWorktreePath(tt.repoRoot, tt.taskID)
 
-			if tt.globalWorktreeDir != "" {
-				// Should use global path
-				if !strings.HasPrefix(got, tt.globalWorktreeDir) {
-					t.Errorf("GetWorktreePath() = %q, want prefix %q", got, tt.globalWorktreeDir)
-				}
-				// Should include task ID
-				if !strings.HasSuffix(got, tt.taskID) {
-					t.Errorf("GetWorktreePath() = %q, want suffix %q", got, tt.taskID)
-				}
-			} else {
-				// Should use local path
-				if !strings.HasPrefix(got, tt.repoRoot) {
-					t.Errorf("GetWorktreePath() = %q, want prefix %q", got, tt.repoRoot)
-				}
+			// Should start with expected prefix
+			if !strings.HasPrefix(got, tt.wantPrefix) {
+				t.Errorf("GetWorktreePath() = %q, want prefix %q", got, tt.wantPrefix)
+			}
+
+			// Should include task ID at the end
+			if !strings.HasSuffix(got, tt.taskID) {
+				t.Errorf("GetWorktreePath() = %q, want suffix %q", got, tt.taskID)
+			}
+
+			// Should include project ID in the middle
+			projectID := GenerateProjectID(tt.repoRoot)
+			if !strings.Contains(got, projectID) {
+				t.Errorf("GetWorktreePath() = %q, should contain project ID %q", got, projectID)
 			}
 		})
 	}

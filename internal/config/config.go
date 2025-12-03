@@ -18,14 +18,9 @@ type Config struct {
 	// BranchPrefix is the prefix for AWT branches (default: awt)
 	BranchPrefix string `json:"branch_prefix,omitempty"`
 
-	// WorktreeDir is the default directory for worktrees (default: ./wt)
-	// This is relative to the repository root and used when GlobalWorktreeDir is empty
+	// WorktreeDir is the directory for worktrees (default: ~/.awt)
+	// Worktrees are stored at <WorktreeDir>/<project-id>/<task-id>
 	WorktreeDir string `json:"worktree_dir,omitempty"`
-
-	// GlobalWorktreeDir is the global directory for worktrees (e.g., ~/.awt)
-	// When set, worktrees are stored at <GlobalWorktreeDir>/<project-hash>/<task-id>
-	// This prevents agents from seeing each other's worktrees in the same project
-	GlobalWorktreeDir string `json:"global_worktree_dir,omitempty"`
 
 	// RebaseDefault determines whether to use rebase or merge for sync (default: true)
 	RebaseDefault bool `json:"rebase_default,omitempty"`
@@ -50,16 +45,15 @@ type Config struct {
 func Default() *Config {
 	homeDir, _ := os.UserHomeDir()
 	return &Config{
-		DefaultAgent:      "unknown",
-		BranchPrefix:      "awt",
-		WorktreeDir:       "./wt",
-		GlobalWorktreeDir: filepath.Join(homeDir, ".awt"),
-		RebaseDefault:     true,
-		AutoPush:          true,
-		AutoPR:            true,
-		RemoteName:        "origin",
-		LockTimeout:       30,
-		VerboseGit:        false,
+		DefaultAgent:  "unknown",
+		BranchPrefix:  "awt",
+		WorktreeDir:   filepath.Join(homeDir, ".awt"),
+		RebaseDefault: true,
+		AutoPush:      true,
+		AutoPR:        true,
+		RemoteName:    "origin",
+		LockTimeout:   30,
+		VerboseGit:    false,
 	}
 }
 
@@ -129,9 +123,6 @@ func (cl *ConfigLoader) loadFromFile(path string, config *Config) error {
 	if partial.WorktreeDir != "" {
 		config.WorktreeDir = partial.WorktreeDir
 	}
-	if partial.GlobalWorktreeDir != "" {
-		config.GlobalWorktreeDir = partial.GlobalWorktreeDir
-	}
 	if partial.RemoteName != "" {
 		config.RemoteName = partial.RemoteName
 	}
@@ -168,9 +159,6 @@ func (cl *ConfigLoader) loadFromEnv(config *Config) {
 	}
 	if val := os.Getenv("AWT_WORKTREE_DIR"); val != "" {
 		config.WorktreeDir = val
-	}
-	if val := os.Getenv("AWT_GLOBAL_WORKTREE_DIR"); val != "" {
-		config.GlobalWorktreeDir = val
 	}
 	if val := os.Getenv("AWT_REMOTE_NAME"); val != "" {
 		config.RemoteName = val
@@ -260,14 +248,16 @@ func (cl *ConfigLoader) GetConfigPath(scope string) (string, error) {
 }
 
 // GetWorktreePath returns the worktree path for a given task.
-// If GlobalWorktreeDir is set, returns: <GlobalWorktreeDir>/<project-id>/<taskID>
-// Otherwise returns: <repoRoot>/<WorktreeDir>/<taskID>
+// Returns: <WorktreeDir>/<project-id>/<taskID>
+// If WorktreeDir is a relative path, it's resolved relative to repoRoot.
 func (c *Config) GetWorktreePath(repoRoot, taskID string) string {
-	if c.GlobalWorktreeDir != "" {
-		projectID := GenerateProjectID(repoRoot)
-		return filepath.Join(c.GlobalWorktreeDir, projectID, taskID)
+	worktreeDir := c.WorktreeDir
+	// If worktree dir is relative, make it relative to repo root
+	if !filepath.IsAbs(worktreeDir) {
+		worktreeDir = filepath.Join(repoRoot, worktreeDir)
 	}
-	return filepath.Join(repoRoot, c.WorktreeDir, taskID)
+	projectID := GenerateProjectID(repoRoot)
+	return filepath.Join(worktreeDir, projectID, taskID)
 }
 
 // GenerateProjectID creates a deterministic identifier for a repository.
