@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kernel-labs-ai/awt/internal/task"
 )
 
 // setupTestRepo creates a temporary git repository for testing
@@ -102,10 +104,24 @@ func TestRunTaskStart(t *testing.T) {
 
 			// If successful, verify the worktree was created
 			if err == nil {
-				worktreePath := filepath.Join(repoPath, tt.opts.WorktreeDir)
-				if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-					t.Error("worktree directory was not created")
+				// Load all tasks and find the one we just created
+				gitCommonDir := filepath.Join(repoPath, ".git")
+				store := task.NewTaskStore(gitCommonDir)
+				tasks, err := store.List()
+				if err != nil {
+					t.Fatalf("failed to list tasks: %v", err)
 				}
+				if len(tasks) == 0 {
+					t.Error("no tasks found after creation")
+					return
+				}
+				// Get the latest task (should be the one we just created)
+				latestTask := tasks[len(tasks)-1]
+				if _, err := os.Stat(latestTask.WorktreePath); os.IsNotExist(err) {
+					t.Errorf("worktree was not created at: %s", latestTask.WorktreePath)
+				}
+				// Clean up the global worktree directory
+				defer os.RemoveAll(latestTask.WorktreePath)
 			}
 		})
 	}
@@ -132,11 +148,21 @@ func TestRunTaskStartWithCustomID(t *testing.T) {
 		t.Fatalf("runTaskStart() failed: %v", err)
 	}
 
-	// Verify worktree exists at expected path
-	worktreePath := filepath.Join(repoPath, opts.WorktreeDir, opts.ID)
-	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-		t.Error("worktree was not created at expected path")
+	// Load task metadata to get the actual worktree path
+	gitCommonDir := filepath.Join(repoPath, ".git")
+	store := task.NewTaskStore(gitCommonDir)
+	savedTask, err := store.Load(opts.ID)
+	if err != nil {
+		t.Fatalf("failed to load task: %v", err)
 	}
+
+	// Verify worktree exists at the path stored in task metadata
+	if _, err := os.Stat(savedTask.WorktreePath); os.IsNotExist(err) {
+		t.Errorf("worktree was not created at expected path: %s", savedTask.WorktreePath)
+	}
+
+	// Clean up the global worktree directory
+	defer os.RemoveAll(savedTask.WorktreePath)
 }
 
 func TestRunTaskStartInvalidTaskID(t *testing.T) {
@@ -215,8 +241,18 @@ func TestRunTaskStartSetsUpstreamTracking(t *testing.T) {
 		t.Fatalf("runTaskStart() failed: %v", err)
 	}
 
+	// Load task metadata to get the actual worktree path
+	gitCommonDir := filepath.Join(repoPath, ".git")
+	store := task.NewTaskStore(gitCommonDir)
+	savedTask, err := store.Load(opts.ID)
+	if err != nil {
+		t.Fatalf("failed to load task: %v", err)
+	}
+
+	worktreePath := savedTask.WorktreePath
+	defer os.RemoveAll(worktreePath)
+
 	// Verify worktree exists
-	worktreePath := filepath.Join(repoPath, opts.WorktreeDir, opts.ID)
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 		t.Fatal("worktree was not created")
 	}

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,7 +18,8 @@ type Config struct {
 	// BranchPrefix is the prefix for AWT branches (default: awt)
 	BranchPrefix string `json:"branch_prefix,omitempty"`
 
-	// WorktreeDir is the default directory for worktrees (default: ./wt)
+	// WorktreeDir is the directory for worktrees (default: ~/.awt)
+	// Worktrees are stored at <WorktreeDir>/<project-id>/<task-id>
 	WorktreeDir string `json:"worktree_dir,omitempty"`
 
 	// RebaseDefault determines whether to use rebase or merge for sync (default: true)
@@ -41,10 +43,11 @@ type Config struct {
 
 // Default returns a config with default values
 func Default() *Config {
+	homeDir, _ := os.UserHomeDir()
 	return &Config{
 		DefaultAgent:  "unknown",
 		BranchPrefix:  "awt",
-		WorktreeDir:   "./wt",
+		WorktreeDir:   filepath.Join(homeDir, ".awt"),
 		RebaseDefault: true,
 		AutoPush:      true,
 		AutoPR:        true,
@@ -242,4 +245,65 @@ func (cl *ConfigLoader) GetConfigPath(scope string) (string, error) {
 	default:
 		return "", fmt.Errorf("invalid scope: %s (must be system, user, or repo)", scope)
 	}
+}
+
+// GetWorktreePath returns the worktree path for a given task.
+// Returns: <WorktreeDir>/<project-id>/<taskID>
+// If WorktreeDir is a relative path, it's resolved relative to repoRoot.
+func (c *Config) GetWorktreePath(repoRoot, taskID string) string {
+	worktreeDir := c.WorktreeDir
+	// If worktree dir is relative, make it relative to repo root
+	if !filepath.IsAbs(worktreeDir) {
+		worktreeDir = filepath.Join(repoRoot, worktreeDir)
+	}
+	projectID := GenerateProjectID(repoRoot)
+	return filepath.Join(worktreeDir, projectID, taskID)
+}
+
+// GenerateProjectID creates a deterministic identifier for a repository.
+// Uses a hash of the absolute path to ensure uniqueness while keeping names short.
+func GenerateProjectID(repoRoot string) string {
+	// Get absolute path and clean it
+	absPath, err := filepath.Abs(repoRoot)
+	if err != nil {
+		absPath = repoRoot
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Create a short hash of the path for uniqueness
+	// Use first 8 characters of hex-encoded hash
+	hash := hashPath(absPath)
+
+	// Also include the directory name for readability
+	dirName := filepath.Base(absPath)
+	// Sanitize directory name - remove special characters
+	dirName = sanitizeForPath(dirName)
+
+	// Limit directory name length
+	if len(dirName) > 30 {
+		dirName = dirName[:30]
+	}
+
+	return fmt.Sprintf("%s-%s", dirName, hash)
+}
+
+// hashPath creates a short hash of a path string
+func hashPath(path string) string {
+	// Simple hash using FNV-1a for speed and good distribution
+	h := fnv.New32a()
+	h.Write([]byte(path))
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+// sanitizeForPath removes or replaces characters not suitable for directory names
+func sanitizeForPath(name string) string {
+	var result strings.Builder
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			result.WriteRune(c)
+		} else if c == ' ' || c == '.' {
+			result.WriteRune('-')
+		}
+	}
+	return result.String()
 }

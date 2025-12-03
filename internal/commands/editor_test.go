@@ -44,9 +44,15 @@ func TestRunTaskEditorWorktreeNotFound(t *testing.T) {
 		t.Fatalf("failed to start task: %v", err)
 	}
 
+	// Load task to get the actual worktree path
+	store := task.NewTaskStore(filepath.Join(repoPath, ".git"))
+	tsk, err := store.Load("test-editor-task")
+	if err != nil {
+		t.Fatalf("failed to load task: %v", err)
+	}
+
 	// Remove the worktree directory to simulate missing worktree
-	worktreePath := filepath.Join(repoPath, ".awt/wt", "test-editor-task")
-	if err := os.RemoveAll(worktreePath); err != nil {
+	if err := os.RemoveAll(tsk.WorktreePath); err != nil {
 		t.Fatalf("failed to remove worktree: %v", err)
 	}
 
@@ -56,7 +62,7 @@ func TestRunTaskEditorWorktreeNotFound(t *testing.T) {
 		Editor:   "echo",
 	}
 
-	err := runTaskEditor(opts)
+	err = runTaskEditor(opts)
 	if err == nil {
 		t.Error("expected error for missing worktree, got nil")
 	}
