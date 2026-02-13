@@ -1,0 +1,29 @@
+internal/commands/handoff.go
+  e84f2a6b7d2a2042 8,12,26-27,49,59-60,67,80-81,96-106,135,164,166,174,181,183,188-189,195,198,200,204-215,218-226,333,337-342
+internal/commands/handoff_test.go
+  e84f2a6b7d2a2042 1-39
+internal/git/git.go
+  e84f2a6b7d2a2042 6,8,71-102,309,314-392
+internal/git/git_test.go
+  e84f2a6b7d2a2042 351-484
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.2",
+  "base_commit_sha": "dce262c9186f001bf2fb9eedabc270aeffe0472d",
+  "prompts": {
+    "e84f2a6b7d2a2042": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7e98dff-ee3f-4b4a-a381-43f5f93b743a",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alessio Fanelli <fanahova@gmail.com>",
+      "messages": [],
+      "total_additions": 356,
+      "total_deletions": 45,
+      "accepted_lines": 350,
+      "overriden_lines": 0
+    }
+  }
+}
