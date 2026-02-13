@@ -348,6 +348,140 @@ func TestGitWorktreePrune(t *testing.T) {
 	}
 }
 
+func TestParseRemoteURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		wantHost string
+		wantOwn  string
+		wantRepo string
+		wantErr  bool
+	}{
+		{
+			name:     "SSH with .git",
+			url:      "git@github.com:owner/repo.git",
+			wantHost: "github.com",
+			wantOwn:  "owner",
+			wantRepo: "repo",
+		},
+		{
+			name:     "SSH without .git",
+			url:      "git@github.com:owner/repo",
+			wantHost: "github.com",
+			wantOwn:  "owner",
+			wantRepo: "repo",
+		},
+		{
+			name:     "HTTPS with .git",
+			url:      "https://github.com/owner/repo.git",
+			wantHost: "github.com",
+			wantOwn:  "owner",
+			wantRepo: "repo",
+		},
+		{
+			name:     "HTTPS without .git",
+			url:      "https://github.com/owner/repo",
+			wantHost: "github.com",
+			wantOwn:  "owner",
+			wantRepo: "repo",
+		},
+		{
+			name:     "GitLab SSH",
+			url:      "git@gitlab.com:mygroup/myproject.git",
+			wantHost: "gitlab.com",
+			wantOwn:  "mygroup",
+			wantRepo: "myproject",
+		},
+		{
+			name:     "GitLab HTTPS",
+			url:      "https://gitlab.com/mygroup/myproject.git",
+			wantHost: "gitlab.com",
+			wantOwn:  "mygroup",
+			wantRepo: "myproject",
+		},
+		{
+			name:    "invalid URL",
+			url:     "not-a-url",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := parseRemoteURL(tt.url)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if info.Host != tt.wantHost {
+				t.Errorf("Host = %q, want %q", info.Host, tt.wantHost)
+			}
+			if info.Owner != tt.wantOwn {
+				t.Errorf("Owner = %q, want %q", info.Owner, tt.wantOwn)
+			}
+			if info.Repo != tt.wantRepo {
+				t.Errorf("Repo = %q, want %q", info.Repo, tt.wantRepo)
+			}
+		})
+	}
+}
+
+func TestCompareURL(t *testing.T) {
+	repoPath, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Add a remote
+	_ = exec.Command("git", "-C", repoPath, "remote", "add", "origin", "git@github.com:owner/repo.git").Run()
+
+	g := New(repoPath, false)
+
+	tests := []struct {
+		name       string
+		remoteURL  string
+		branch     string
+		base       string
+		wantSubstr string
+	}{
+		{
+			name:       "GitHub compare URL",
+			remoteURL:  "git@github.com:owner/repo.git",
+			branch:     "feature",
+			base:       "main",
+			wantSubstr: "github.com/owner/repo/compare/main...feature?expand=1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set the remote URL
+			_ = exec.Command("git", "-C", repoPath, "remote", "set-url", "origin", tt.remoteURL).Run()
+
+			url, err := g.CompareURL("origin", tt.branch, tt.base)
+			if err != nil {
+				t.Fatalf("CompareURL failed: %v", err)
+			}
+			if !strings.Contains(url, tt.wantSubstr) {
+				t.Errorf("CompareURL = %q, want substring %q", url, tt.wantSubstr)
+			}
+		})
+	}
+
+	// Test GitLab URL
+	_ = exec.Command("git", "-C", repoPath, "remote", "set-url", "origin", "git@gitlab.com:group/project.git").Run()
+	url, err := g.CompareURL("origin", "feature", "main")
+	if err != nil {
+		t.Fatalf("CompareURL (gitlab) failed: %v", err)
+	}
+	if !strings.Contains(url, "gitlab.com/group/project/-/merge_requests/new") {
+		t.Errorf("CompareURL (gitlab) = %q, want gitlab merge_requests URL", url)
+	}
+}
+
 func TestGitSetUpstream(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()

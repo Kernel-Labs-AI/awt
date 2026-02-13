@@ -3,7 +3,9 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/kernel-labs-ai/awt/internal/logger"
@@ -60,6 +62,38 @@ func (g *Git) run(args ...string) (*Result, error) {
 			result.ExitCode = exitErr.ExitCode()
 		} else {
 			return result, fmt.Errorf("failed to execute git command: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
+// runExternal executes a non-git command (e.g., gh, glab) with the working directory set to the worktree root
+func (g *Git) runExternal(name string, args ...string) (*Result, error) {
+	if g.verbose {
+		logger.Debug("%s %s", name, strings.Join(args, " "))
+	}
+
+	cmd := exec.Command(name, args...)
+	cmd.Dir = g.workTreeRoot
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	result := &Result{
+		Stdout:   strings.TrimSpace(stdout.String()),
+		Stderr:   strings.TrimSpace(stderr.String()),
+		ExitCode: 0,
+	}
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			result.ExitCode = exitErr.ExitCode()
+		} else {
+			return result, fmt.Errorf("failed to execute %s: %w", name, err)
 		}
 	}
 
@@ -272,12 +306,90 @@ func (g *Git) Status() (*Result, error) {
 
 // CreatePRWithGH creates a pull request using gh CLI
 func (g *Git) CreatePRWithGH(title, body, base string) (*Result, error) {
-	return g.run("gh", "pr", "create", "--title", title, "--body", body, "--base", base)
+	return g.runExternal("gh", "pr", "create", "--title", title, "--body", body, "--base", base)
 }
 
 // CreateMRWithGLab creates a merge request using glab CLI
 func (g *Git) CreateMRWithGLab(title, description, targetBranch string) (*Result, error) {
-	return g.run("glab", "mr", "create", "--title", title, "--description", description, "--target-branch", targetBranch)
+	return g.runExternal("glab", "mr", "create", "--title", title, "--description", description, "--target-branch", targetBranch)
+}
+
+// GetRemoteURL returns the URL for a given remote
+func (g *Git) GetRemoteURL(remote string) (string, error) {
+	result, err := g.run("remote", "get-url", remote)
+	if err != nil {
+		return "", err
+	}
+	if result.ExitCode != 0 {
+		return "", fmt.Errorf("failed to get remote URL: %s", result.Stderr)
+	}
+	return result.Stdout, nil
+}
+
+// remoteInfo holds the parsed host, owner, and repo from a remote URL
+type remoteInfo struct {
+	Host  string
+	Owner string
+	Repo  string
+}
+
+// sshRemotePattern matches SSH remote URLs like git@github.com:owner/repo.git
+var sshRemotePattern = regexp.MustCompile(`^[\w.-]+@([\w.-]+):([\w._-]+)/([\w._-]+?)(?:\.git)?$`)
+
+// parseRemoteURL parses a git remote URL (SSH or HTTPS) into host, owner, and repo
+func parseRemoteURL(rawURL string) (*remoteInfo, error) {
+	rawURL = strings.TrimSpace(rawURL)
+
+	// Try SSH format: git@github.com:owner/repo.git
+	if matches := sshRemotePattern.FindStringSubmatch(rawURL); matches != nil {
+		return &remoteInfo{
+			Host:  matches[1],
+			Owner: matches[2],
+			Repo:  matches[3],
+		}, nil
+	}
+
+	// Try HTTPS format: https://github.com/owner/repo.git
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse remote URL %q: %w", rawURL, err)
+	}
+
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("could not parse owner/repo from URL %q", rawURL)
+	}
+
+	repo := parts[1]
+	repo = strings.TrimSuffix(repo, ".git")
+
+	return &remoteInfo{
+		Host:  parsed.Host,
+		Owner: parts[0],
+		Repo:  repo,
+	}, nil
+}
+
+// CompareURL constructs a browser-openable compare URL for creating a PR/MR
+func (g *Git) CompareURL(remote, branch, base string) (string, error) {
+	remoteURL, err := g.GetRemoteURL(remote)
+	if err != nil {
+		return "", err
+	}
+
+	info, err := parseRemoteURL(remoteURL)
+	if err != nil {
+		return "", err
+	}
+
+	switch {
+	case strings.Contains(info.Host, "github"):
+		return fmt.Sprintf("https://%s/%s/%s/compare/%s...%s?expand=1", info.Host, info.Owner, info.Repo, base, branch), nil
+	case strings.Contains(info.Host, "gitlab"):
+		return fmt.Sprintf("https://%s/%s/%s/-/merge_requests/new?merge_request[source_branch]=%s&merge_request[target_branch]=%s", info.Host, info.Owner, info.Repo, branch, base), nil
+	default:
+		return fmt.Sprintf("https://%s/%s/%s/compare/%s...%s", info.Host, info.Owner, info.Repo, base, branch), nil
+	}
 }
 
 // CurrentBranch returns the current branch name

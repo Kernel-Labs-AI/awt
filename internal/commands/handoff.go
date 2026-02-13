@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/kernel-labs-ai/awt/internal/config"
 	"github.com/kernel-labs-ai/awt/internal/errors"
 	"github.com/kernel-labs-ai/awt/internal/git"
 	"github.com/kernel-labs-ai/awt/internal/lock"
@@ -21,8 +23,8 @@ type HandoffOptions struct {
 	RepoPath     string
 	TaskID       string
 	Branch       string
-	Push         bool
-	CreatePR     bool
+	NoPush       bool
+	NoPR         bool
 	KeepWorktree bool
 	ForceRemove  bool
 	OutputJSON   bool
@@ -44,7 +46,7 @@ func NewTaskHandoffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "handoff [task-id]",
 		Short: "Hand off a task for review",
-		Long: `Hand off a task for review by pushing and optionally creating a PR.
+		Long: `Hand off a task for review by pushing and creating a PR.
 
 The task can be specified by:
   1. Providing the task ID as an argument
@@ -54,15 +56,15 @@ The task can be specified by:
 This command performs the following steps:
   1. Commits any staged changes (optional)
   2. Syncs with base branch
-  3. Pushes to remote (if --push)
-  4. Creates PR/MR (if --create-pr, requires gh/glab)
+  3. Pushes to remote (unless --no-push)
+  4. Creates PR/MR (unless --no-pr, requires gh/glab; falls back to compare URL)
   5. Detaches HEAD in worktree
   6. Removes worktree (unless --keep-worktree)
   7. Updates task state to HANDOFF_READY
 
 Example:
-  awt task handoff 20250110-120000-abc123 --push --create-pr
-  awt task handoff --push
+  awt task handoff 20250110-120000-abc123
+  awt task handoff --no-push
   awt task handoff --keep-worktree`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,8 +77,8 @@ Example:
 
 	cmd.Flags().StringVar(&opts.RepoPath, "repo", "", "path to Git repository")
 	cmd.Flags().StringVar(&opts.Branch, "branch", "", "branch name")
-	cmd.Flags().BoolVar(&opts.Push, "push", false, "push to remote")
-	cmd.Flags().BoolVar(&opts.CreatePR, "create-pr", false, "create pull/merge request (requires --push)")
+	cmd.Flags().BoolVar(&opts.NoPush, "no-push", false, "skip pushing to remote")
+	cmd.Flags().BoolVar(&opts.NoPR, "no-pr", false, "skip creating pull/merge request")
 	cmd.Flags().BoolVar(&opts.KeepWorktree, "keep-worktree", false, "keep worktree after handoff")
 	cmd.Flags().BoolVar(&opts.ForceRemove, "force-remove", false, "force remove worktree even if CWD is inside")
 	cmd.Flags().BoolVar(&opts.OutputJSON, "json", false, "output result as JSON")
@@ -90,6 +92,17 @@ func runTaskHandoff(opts *HandoffOptions) error {
 	if err != nil {
 		return errors.RepoNotFound(opts.RepoPath)
 	}
+
+	// Load config
+	configLoader := config.NewConfigLoader(r.GitCommonDir)
+	cfg, err := configLoader.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Compute effective push/PR flags from config + CLI overrides
+	shouldPush := cfg.AutoPush && !opts.NoPush
+	shouldCreatePR := cfg.AutoPR && !opts.NoPR
 
 	store := task.NewTaskStore(r.GitCommonDir)
 
@@ -119,7 +132,7 @@ func runTaskHandoff(opts *HandoffOptions) error {
 	}
 
 	// Create Git wrapper for the worktree
-	g := git.New(t.WorktreePath, false)
+	g := git.New(t.WorktreePath, cfg.VerboseGit)
 
 	// Step 1: Check for uncommitted changes (optional - just warn)
 	statusResult, err := g.Status()
@@ -148,9 +161,9 @@ func runTaskHandoff(opts *HandoffOptions) error {
 		}
 	}
 
-	// Step 3: Push if requested
+	// Step 3: Push if configured
 	pushed := false
-	if opts.Push {
+	if shouldPush {
 		if !opts.OutputJSON {
 			fmt.Printf("Pushing to remote...\n")
 		}
@@ -158,50 +171,59 @@ func runTaskHandoff(opts *HandoffOptions) error {
 		// Extract branch name without refs/heads/
 		branchName := strings.TrimPrefix(t.Branch, "refs/heads/")
 
-		pushResult, err := g.Push("origin", branchName, true, false)
+		pushResult, err := g.Push(cfg.RemoteName, branchName, true, false)
 		if err != nil || pushResult.ExitCode != 0 {
 			return errors.PushRejected(t.Branch, err)
 		}
 		pushed = true
 	}
 
-	// Step 4: Create PR if requested
+	// Step 4: Create PR if configured (requires push)
 	prURL := ""
-	if opts.CreatePR {
-		if !opts.Push {
-			return fmt.Errorf("--create-pr requires --push")
-		}
-
+	if shouldCreatePR && shouldPush {
 		if !opts.OutputJSON {
 			fmt.Printf("Creating pull request...\n")
 		}
+
+		branchName := strings.TrimPrefix(t.Branch, "refs/heads/")
+		baseBranch := stripRemotePrefix(t.Base)
 
 		// Check if gh or glab is available
 		ghAvailable := checkCommandExists("gh")
 		glabAvailable := checkCommandExists("glab")
 
-		if !ghAvailable && !glabAvailable {
-			return errors.ToolMissing("gh or glab")
-		}
+		if ghAvailable || glabAvailable {
+			var prResult *git.Result
+			if ghAvailable {
+				prResult, err = g.CreatePRWithGH(t.Title, fmt.Sprintf("Task: %s\nAgent: %s\nBranch: %s", t.ID, t.Agent, t.Branch), baseBranch)
+			} else {
+				prResult, err = g.CreateMRWithGLab(t.Title, fmt.Sprintf("Task: %s\nAgent: %s\nBranch: %s", t.ID, t.Agent, t.Branch), baseBranch)
+			}
 
-		// Try to create PR
-		var prResult *git.Result
-		if ghAvailable {
-			prResult, err = g.CreatePRWithGH(t.Title, fmt.Sprintf("Task: %s\nAgent: %s\nBranch: %s", t.ID, t.Agent, t.Branch), t.Base)
-		} else {
-			prResult, err = g.CreateMRWithGLab(t.Title, fmt.Sprintf("Task: %s\nAgent: %s\nBranch: %s", t.ID, t.Agent, t.Branch), t.Base)
-		}
-
-		if err != nil || prResult.ExitCode != 0 {
-			// PR creation failed - don't fail the handoff, just warn
-			if !opts.OutputJSON {
-				fmt.Printf("Warning: failed to create PR: %s\n", prResult.Stderr)
+			if err != nil || prResult.ExitCode != 0 {
+				if !opts.OutputJSON {
+					stderr := ""
+					if prResult != nil {
+						stderr = prResult.Stderr
+					}
+					fmt.Printf("Warning: failed to create PR: %s\n", stderr)
+				}
+			} else {
+				prURL = extractPRURL(prResult.Stdout)
+				if prURL != "" {
+					t.PRURL = prURL
+				}
 			}
 		} else {
-			// Extract PR URL from output
-			prURL = extractPRURL(prResult.Stdout)
-			if prURL != "" {
-				t.PRURL = prURL
+			// Fallback: generate a compare URL
+			compareURL, urlErr := g.CompareURL(cfg.RemoteName, branchName, baseBranch)
+			if urlErr == nil && compareURL != "" {
+				prURL = compareURL
+				if !opts.OutputJSON {
+					fmt.Printf("gh/glab not found. Open this URL to create a PR:\n  %s\n", compareURL)
+				}
+			} else if !opts.OutputJSON {
+				fmt.Printf("Warning: gh/glab not found and could not generate compare URL: %v\n", urlErr)
 			}
 		}
 	}
@@ -308,12 +330,16 @@ func runTaskHandoff(opts *HandoffOptions) error {
 
 // checkCommandExists checks if a command exists in PATH
 func checkCommandExists(cmd string) bool {
-	_, err := os.Stat("/usr/bin/" + cmd)
-	if err == nil {
-		return true
-	}
-	_, err = os.Stat("/usr/local/bin/" + cmd)
+	_, err := exec.LookPath(cmd)
 	return err == nil
+}
+
+// stripRemotePrefix converts "origin/main" to "main"
+func stripRemotePrefix(ref string) string {
+	if idx := strings.Index(ref, "/"); idx != -1 {
+		return ref[idx+1:]
+	}
+	return ref
 }
 
 // extractPRURL extracts the PR URL from gh/glab output
