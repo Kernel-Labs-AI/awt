@@ -50,6 +50,19 @@ checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
+nfpms:
+  - id: awt
+    package_name: awt
+    maintainer: Kernel Labs <opensource@kernellabs.ai>
+    formats:
+      - deb
+    bindir: /usr/bin
+    dependencies:
+      - git
+    ids:
+      - awt
+    file_name_template: '{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 

@@ -38,18 +38,23 @@ All AWT commands are in ./docs/AWT_USAGE.md.
 brew install kernel-labs-ai/tap/awt
 ```
 
-### Linux/macOS (Manual)
+### Linux/macOS (Installer Script - Recommended)
 
 ```bash
-# Download the latest release
-curl -LO https://github.com/kernel-labs-ai/awt/releases/latest/download/awt_<VERSION>_<OS>_<ARCH>.tar.gz
+curl -fsSL https://raw.githubusercontent.com/kernel-labs-ai/awt/main/scripts/install.sh | bash
 
-# Extract and install
-tar xzf awt_*.tar.gz
-sudo mv awt /usr/local/bin/
+# Pin a specific release
+curl -fsSL https://raw.githubusercontent.com/kernel-labs-ai/awt/main/scripts/install.sh | bash -s -- --version vX.Y.Z
+```
 
-# Verify installation
-awt version
+### Debian Packages (.deb)
+
+```bash
+# Download a release asset, then install with apt
+sudo apt install ./awt_<version>_linux_amd64.deb
+
+# Or install with dpkg directly
+sudo dpkg -i ./awt_<version>_linux_amd64.deb
 ```
 
 ### From Source
@@ -475,12 +480,15 @@ go test -race ./...
 git tag -a v1.0.0 -m "Release v1.0.0"
 git push origin v1.0.0
 
-# GitHub Actions will automatically:
-# - Run tests
-# - Build binaries for all platforms
-# - Create GitHub release
+# GitHub Actions release workflow will automatically:
+# - Run go test ./...
+# - Build tarballs and checksums
+# - Build .deb packages for linux/amd64 and linux/arm64
+# - Publish the GitHub release
 # - Update Homebrew tap
 ```
+
+See docs/release.md for the full maintainer checklist.
 
 ## Contributing
 
